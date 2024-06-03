@@ -1,0 +1,97 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  @apply antialiased h-svh w-full border-0 m-0 p-0;
+}
+#app {
+  @apply size-full;
+}
+
+.custom-scrollbars * {
+  /* Estilos de la barra de desplazamiento para Firefox */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
+}
+
+.custom-scrollbars *:hover {
+  scrollbar-color: rgba(0, 0, 0, 0.3) transparent;
+}
+
+.custom-scrollbars ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.custom-scrollbars ::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbars ::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+}
+
+.custom-scrollbars ::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+/* Remove arrows input type number */
+@layer base {
+  :root {
+    --sidebar-menu-height: 68px;
+  }
+  input[type='number']::-webkit-inner-spin-button,
+  input[type='number']::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+}
+
+@layer utilities {
+  .truncate-paragraph {
+    display: -webkit-box;
+    -webkit-line-clamp: 3; /* Número de líneas después de las cuales aplicar la elipsis */
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: normal;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply rounded border-0 border-transparent bg-blue-600 px-2 py-1 text-sm font-semibold text-white shadow-sm hover:border-0 hover:border-transparent hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:cursor-not-allowed disabled:bg-blue-100 disabled:text-blue-50;
+  }
+  .btn-secondary {
+    @apply rounded border-0 border-transparent bg-white px-2 py-1 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:border-0 hover:border-transparent hover:bg-gray-50 hover:text-gray-900 disabled:cursor-not-allowed disabled:bg-white disabled:text-gray-100;
+  }
+  .btn-icon {
+    @apply rounded p-2 hover:bg-slate-100 active:bg-sky-50;
+  }
+  .btn-icon-text {
+    @apply rounded px-1 py-2 hover:bg-slate-100 active:bg-sky-50;
+  }
+  .menu-items-start {
+    @apply absolute left-0 z-20 mt-2 origin-top-right divide-y divide-gray-100 rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none;
+  }
+
+  .menu-items-end {
+    @apply menu-items-start left-[initial] right-0;
+  }
+
+  .menu-item {
+    @apply flex cursor-pointer px-4 py-2 align-middle text-sm font-normal text-gray-700 hover:bg-gray-50 first:hover:rounded-t-md last:hover:rounded-b-md;
+  }
+  .menu {
+    @apply rounded-b-md;
+  }
+
+  .badget-counter {
+    @apply inline-block rounded-xl bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-900;
+  }
+  .card-footer {
+    @apply absolute bottom-0 left-0 right-0 z-10 min-h-[45px] w-full rounded-b-md border-t border-t-gray-200 bg-white p-2;
+  }
+}
