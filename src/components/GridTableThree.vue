@@ -22,51 +22,28 @@
       :style="{ 'grid-template-rows': `repeat(${rows}, 3.2rem)` }"
     >
       <template v-for="(vals, row) in iteratorObject" :key="row">
+        <GridCell v-if="row == 1" data-test="true" :cells="[1]" :row="row" :cell="1" :width="30">
+          <div class="absolute bg-gray-300 h-1 w-[1000%] top-1/2" />
+        </GridCell>
         <GridCell
+          v-if="row == 1"
+          data-test="true"
+          :cells="[1]"
+          :row="row"
+          :cell="1"
+          :width="50"
+          :left="35"
+        />
+        <GridCell
+          v-if="row > 1"
           v-for="cell in 10"
           :key="`${row}-${cell}`"
           :cells="vals"
           :row="row"
           :cell="cell"
-        />
-        <!--
-        <div
-          v-for="cell in 10"
-          data-label="cell"
-          :key="`${row}-${cell}`"
-          :data-row="row"
-          :data-column="cell"
-          :data-has-stops="vals.includes(cell)"
-          :class="['relative flex items-center', { 'ignore-elements': !vals.includes(cell) }]"
-          :style="{
-            'grid-column-start': cell,
-            'grid-row-start': row
-          }"
         >
           <div v-if="cell === 1" class="absolute bg-gray-300 h-1 w-[1000%] top-1/2" />
-          <div
-            v-if="vals.includes(cell)"
-            data-label="stop"
-            class="absolute bg-amber-50 border-gray-400 hover:cursor-move h-[30px] w-[80px] border rounded-md font-bold flex justify-center items-center"
-          >
-            {{ row }}-{{ cell }}
-
-            <svg
-              data-label="mirror"
-              class="hidden"
-              width="50"
-              height="75"
-              viewBox="0 0 100 150"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path
-                d="M50 0 C77.61 0 100 22.39 100 50 C100 83.97 50 150 50 150 C50 150 0 83.97 0 50 C0 22.39 22.39 0 50 0 Z"
-                fill="#007BFF"
-              />
-            </svg>
-          </div>
-        </div>
-        -->
+        </GridCell>
       </template>
     </div>
   </div>
@@ -95,11 +72,13 @@ function handleSetRows() {
   iteratorObject.value = generateRandomObject(rows.value)
 }
 
+// Hay que tratar de que esto se un div fijo en el html y cambiarlo de posicion y ocultarlo sin
+// tener que crearlo y destruirlo que tiene mas coste y perjudica la animacion
 function createLink(starRect, endRect) {
   const nodo = document.getElementById('line')
   nodo?.remove()
-  const startX = starRect.right
-  const endX = endRect.left
+  const startX = starRect.right - 10
+  const endX = endRect.left + 10
   const y = starRect.top + starRect.height / 2 - 1
   const line = document.createElement('div')
   line.id = 'line'
@@ -108,11 +87,13 @@ function createLink(starRect, endRect) {
   line.style.width = `${endX - startX}px`
   line.style.position = 'absolute'
   line.style.height = '4px'
-  line.style.backgroundColor = 'lightblue'
-  line.style.backgroundColor = 'lightblue'
+  line.style.transition = 'background 0.5s ease, transform 0.5s ease'
 
   // Add the line to the body
   document.body.appendChild(line)
+  setTimeout(() => {
+    line.style.backgroundColor = 'lightblue'
+  }, 30)
 }
 onMounted(() => {
   if (refGrid.value) {

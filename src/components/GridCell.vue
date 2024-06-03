@@ -10,11 +10,12 @@
       'grid-row-start': row
     }"
   >
-    <div v-if="cell === 1" class="absolute bg-gray-300 h-1 w-[1000%] top-1/2" />
+    <slot />
     <div
       v-if="cells.includes(cell)"
       data-label="stop"
       class="absolute bg-amber-50 border-gray-400 hover:cursor-move h-[30px] w-[80px] border rounded-md font-bold flex justify-center items-center"
+      :style="{ width: width + 'px' ?? '80px', left: left + 'px' ?? 'auto' }"
     >
       {{ row }}-{{ cell }}
 
@@ -39,15 +40,26 @@ defineProps<{
   row: number
   cell: number
   cells: number[]
+  width?: number
+  left?: number
 }>()
 </script>
 
 <style scoped>
 .highlight-left {
-  background: linear-gradient(to right, lightblue 50%, transparent 50%);
+  background: lightblue;
+  transform: translateX(10px); /* Mueve 20px a la izquierda */
+  transition:
+    background 0.5s ease,
+    transform 0.8s ease; /* Añade transiciones para fondo y posición */
 }
+
 .highlight-right {
-  background: linear-gradient(to right, transparent 50%, lightblue 50%);
+  background: lightblue;
+  transform: translateX(-10px); /* Mueve 20px a la derecha */
+  transition:
+    background 0.5s ease,
+    transform 0.8s ease; /* Añade transiciones para fondo y posición */
 }
 .dragging {
   cursor: grabbing !important;
