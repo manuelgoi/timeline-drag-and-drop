@@ -46,55 +46,64 @@
         </GridCell>
       </template>
     </div>
+    <div ref="refLink" class="absolute hidden h-1" />
   </div>
 </template>
 
 <script lang="ts" setup>
 import { ref, onMounted, onUnmounted } from 'vue'
-import { Draggable } from '@shopify/draggable'
-import { generateSequentialObject, generateRandomObject } from '@/utils'
+import { Draggable, type MirrorCreatedEvent } from '@shopify/draggable'
+import {
+  cleanStopsHighlighted,
+  generateRandomObject,
+  getClosestLeftElement,
+  getClosestRightElement,
+  getSide,
+  highlighTwoStopsToLeft,
+  highlighTwoStopsToRight
+} from '@/utils'
 import GridCell from '@/components/GridCell.vue'
+import { StopSide } from '@/index'
+import { colorFillStopOverAndSiblinlag } from '@/utils'
 
 const refInputRows = ref<HTMLInputElement | null>(null)
 const refGrid = ref<HTMLDivElement | null>(null)
+const refLink = ref<HTMLDivElement | null>(null)
 const rows = ref(90)
 const totalCells = ref(0)
 const totalStops = ref(0)
-// const iteratorObject = generateSequentialObject(rows.value)
 const iteratorObject = ref(generateRandomObject(rows.value))
 
 let draggableInstance: Draggable | null = null
-let lastOverContainer = null
-let lastSiblingStop = null
+let currentOverContainer: HTMLElement | null = null
+let currentOverStop: HTMLElement | null = null
+let currentSiblingStop: HTMLElement | null = null
+let lastOverStop: HTMLElement | null = null
+let lastStopSide: StopSide | null = null
 
 function handleSetRows() {
-  rows.value = refInputRows.value?.value
-  iteratorObject.value = generateRandomObject(rows.value)
+  if (rows.value) {
+    rows.value = parseInt(refInputRows.value?.value ?? '0')
+    iteratorObject.value = generateRandomObject(rows.value)
+  }
 }
 
 // Hay que tratar de que esto se un div fijo en el html y cambiarlo de posicion y ocultarlo sin
 // tener que crearlo y destruirlo que tiene mas coste y perjudica la animacion
-function createLink(starRect, endRect) {
-  const nodo = document.getElementById('line')
-  nodo?.remove()
-  const startX = starRect.right - 10
-  const endX = endRect.left + 10
+/*
+function createLink(starRect: DOMRect, endRect: DOMRect) {
+  const startX = starRect.right
+  const endX = endRect.left
   const y = starRect.top + starRect.height / 2 - 1
-  const line = document.createElement('div')
-  line.id = 'line'
-  line.style.top = `${y}px`
-  line.style.left = `${startX}px`
-  line.style.width = `${endX - startX}px`
-  line.style.position = 'absolute'
-  line.style.height = '4px'
-  line.style.transition = 'background 0.5s ease, transform 0.5s ease'
-
-  // Add the line to the body
-  document.body.appendChild(line)
-  setTimeout(() => {
-    line.style.backgroundColor = 'lightblue'
-  }, 30)
+  if (refLink.value) {
+    refLink.value.style.top = `${y}px`
+    refLink.value.style.left = `${startX}px`
+    refLink.value.style.width = `${endX - startX}px`
+    refLink.value.classList.add('show-link')
+  }
 }
+ */
+
 onMounted(() => {
   if (refGrid.value) {
     const cells = refGrid.value.querySelectorAll('[data-label="cell"]')
@@ -113,13 +122,12 @@ onMounted(() => {
         }
       })
 
-      draggableInstance.on('mirror:created', (event) => {
-        // event.data.mirror.style.display = 'none'
+      draggableInstance.on('mirror:created', (event: MirrorCreatedEvent) => {
+        event.data.mirror.style.display = 'none'
         event.data.mirror.style.border = '0'
         event.data.mirror.style.backgroundColor = 'transparent'
         event.data.mirror.style.color = 'transparent'
         const mirror = event.data.mirror.querySelector("[data-label='mirror']")
-        mirror.style.zIndex = '40'
         mirror.style.display = 'block'
         mirror.style.position = 'absolute'
         mirror.style.bottom = '25px'
@@ -131,93 +139,127 @@ onMounted(() => {
       })
 
       draggableInstance.on('drag:move', (ev) => {
-        if (lastOverContainer) {
-          const overStop = lastOverContainer.querySelector('[data-label="stop"]')
+        if (currentOverContainer) {
+          const overRect = currentOverStop?.getBoundingClientRect() ?? null
+          cleanStopsHighlighted(currentOverStop, currentSiblingStop, refLink.value)
+          const currentSide = getSide(ev.sensorEvent.clientX, overRect)
+
+          if (currentSide === StopSide.right) {
+            lastStopSide = StopSide.right
+            currentOverStop?.classList?.add('highlight-right')
+            const closestContainer = getClosestRightElement(currentOverContainer)
+            if (closestContainer?.dataset?.row === currentOverContainer.dataset?.row) {
+              currentSiblingStop = highlighTwoStopsToRight(closestContainer, refLink, overRect)
+            }
+          } else {
+            lastStopSide = StopSide.left
+            currentOverStop?.classList?.add('highlight-left')
+            const closestContainer = getClosestLeftElement(currentOverContainer)
+            if (closestContainer?.dataset?.row === currentOverContainer?.dataset?.row) {
+              currentSiblingStop = highlighTwoStopsToLeft(closestContainer, refLink, overRect)
+            }
+          }
+          /*
+          // const overStop = currentOverContainer.querySelector('[data-label="stop"]') as HTMLDivElement
+          const overStop = currentOverStop
           const overRect = overStop.getBoundingClientRect()
           const eventX = ev.sensorEvent.clientX
 
           overStop.classList.remove('highlight-left', 'highlight-right')
-          if (lastSiblingStop) {
-            lastSiblingStop.classList.remove('highlight-left', 'highlight-right')
+          if (currentSiblingStop) {
+            currentSiblingStop.classList.remove('highlight-left', 'highlight-right')
           }
-
-          if (eventX > overRect.left + overRect.width / 2) {
-            // RIGHT SIDE
+          const currentSide =
+            eventX > overRect.left + overRect.width / 2 ? StopSide.right : StopSide.left
+          console.log(
+            lastOverStop?.innerText,
+            currentOverStop?.innerText,
+            currentSide === StopSide.left ? 'left' : 'right'
+          )
+          if (currentSide === StopSide.right) {
+            lastStopSide = StopSide.right
             overStop.classList.add('highlight-right')
-            let closestElement = lastOverContainer.nextElementSibling
+            let closestElement = currentOverContainer.nextElementSibling
             while (
               closestElement.dataset?.hasStops === 'false' &&
-              closestElement.dataset?.row === lastOverContainer.dataset?.row
+              closestElement.dataset?.row === currentOverContainer.dataset?.row
             ) {
               closestElement = closestElement.nextElementSibling
             }
-            if (closestElement.dataset?.row !== lastOverContainer.dataset?.row) {
+            if (closestElement.dataset?.row !== currentOverContainer.dataset?.row) {
               // No hay elementos con columnas a la derecha
               console.log('No previus Sibling elements at right side')
             } else {
-              // console.log(lastOverContainer.dataset?.column, closestElement.dataset?.column)
-              lastSiblingStop = closestElement.querySelector('[data-label="stop"]')
-              lastSiblingStop.classList.add('highlight-left')
-              const nodo = document.getElementById('line')
-              nodo?.remove()
-              const siblingRect = lastSiblingStop.getBoundingClientRect()
+              // console.log(currentOverContainer.dataset?.column, closestElement.dataset?.column)
+              currentSiblingStop = closestElement.querySelector('[data-label="stop"]')
+              currentSiblingStop.classList.add('highlight-left')
+              const siblingRect = currentSiblingStop.getBoundingClientRect()
+              refLink.value?.classList.remove('show-link')
               createLink(overRect, siblingRect)
             }
           } else {
-            // LEFT SIDE
+            lastStopSide = StopSide.left
             overStop.classList.add('highlight-left')
-            let closestElement = lastOverContainer?.previousElementSibling
+            let closestElement = currentOverContainer?.previousElementSibling
             while (
               closestElement?.dataset?.hasStops === 'false' &&
-              closestElement?.dataset?.row === lastOverContainer?.dataset?.row
+              closestElement?.dataset?.row === currentOverContainer?.dataset?.row
             ) {
               closestElement = closestElement?.previousElementSibling
             }
-            if (closestElement?.dataset?.row !== lastOverContainer?.dataset?.row) {
+            if (closestElement?.dataset?.row !== currentOverContainer?.dataset?.row) {
               // No hay elementos con columnas a la izquierda
               console.log('No previus Sibling elements at left side')
             } else {
-              // console.log(lastOverContainer?.dataset?.column, closestElement?.dataset?.column)
-              lastSiblingStop = closestElement.querySelector('[data-label="stop"]')
-              lastSiblingStop.classList.add('highlight-right')
-              const nodo = document.getElementById('line')
-              nodo?.remove()
-              const siblingRect = lastSiblingStop.getBoundingClientRect()
+              // console.log(currentOverContainer?.dataset?.column, closestElement?.dataset?.column)
+              currentSiblingStop = closestElement.querySelector('[data-label="stop"]')
+              currentSiblingStop.classList.add('highlight-right')
+              const siblingRect = currentSiblingStop.getBoundingClientRect()
+              refLink.value?.classList.remove('show-link')
               createLink(siblingRect, overRect)
             }
           }
+          */
         }
       })
+
       draggableInstance.on('drag:over', (ev) => {
-        lastOverContainer = ev.overContainer
+        currentOverStop = ev.over
+        currentOverContainer = ev.overContainer
+        lastOverStop = ev.over
       })
 
       draggableInstance.on('drag:out', (ev) => {
-        if (lastOverContainer) {
+        if (currentOverContainer /* currentOverStop */) {
           const overStop = ev.overContainer.querySelector('[data-label="stop"]')
           overStop.classList.remove('highlight-left', 'highlight-right')
-          lastOverContainer = null
+          // currentOverStop.classList.remove('highlight-left', 'highlight-right')
+          lastOverStop = currentOverStop
+          currentOverContainer = null
+          currentOverStop = null
         }
-        if (lastSiblingStop) {
-          lastSiblingStop.classList.remove('highlight-left', 'highlight-right')
-          lastSiblingStop = null
+        if (currentSiblingStop) {
+          currentSiblingStop.classList.remove('highlight-left', 'highlight-right')
+          currentSiblingStop = null
         }
-        const nodo = document.getElementById('line')
-        nodo?.remove()
+        refLink.value?.classList.remove('show-link')
+        lastStopSide = null
       })
 
       draggableInstance.on('drag:stop', (ev) => {
-        if (lastOverContainer) {
-          const overStop = lastOverContainer.querySelector('[data-label="stop"]')
-          overStop.classList.remove('highlight-left', 'highlight-right')
-          lastOverContainer = null
+        if (/*currentOverContainer*/ currentOverStop) {
+          // const overStop = currentOverContainer.querySelector('[data-label="stop"]')
+          // overStop.classList.remove('highlight-left', 'highlight-right')
+          currentOverStop.classList.remove('highlight-left', 'highlight-right')
+          currentOverContainer = null
+          currentOverStop = null
         }
-        if (lastSiblingStop) {
-          lastSiblingStop.classList.remove('highlight-left', 'highlight-right')
-          lastSiblingStop = null
+        if (currentSiblingStop) {
+          currentSiblingStop.classList.remove('highlight-left', 'highlight-right')
+          currentSiblingStop = null
         }
-        const nodo = document.getElementById('line')
-        nodo?.remove()
+        refLink.value?.classList.remove('show-link')
+        lastStopSide = null
       })
     }
   } else {
@@ -242,5 +284,13 @@ onUnmounted(() => {
 }
 .dragging {
   cursor: grabbing !important;
+}
+.show-link {
+  display: block;
+  z-index: 50;
+  transition:
+    background 0.5s ease,
+    transform 0.5s ease;
+  background: lightblue;
 }
 </style>
