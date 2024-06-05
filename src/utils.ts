@@ -36,20 +36,24 @@ export function generateSequentialObject(end: number): Record<number, number[]> 
   return result
 }
 
-function createLink(
+function createLinkBetweenStops(
   refLink: Ref<HTMLDivElement | null>,
   starRect: DOMRect | null,
   endRect: DOMRect | null
 ) {
   if (starRect && endRect) {
-    const startX = starRect.right
-    const endX = endRect.left
+    const startX = starRect.right - 10
+    const endX = endRect.left + 10
     const y = starRect.top + starRect.height / 2 - 1
     if (refLink.value) {
       refLink.value.style.top = `${y}px`
       refLink.value.style.left = `${startX}px`
       refLink.value.style.width = `${endX - startX}px`
-      refLink.value.classList.add('show-link')
+      setTimeout(() => {
+        if (refLink.value) {
+          refLink.value.classList.add('show-link')
+        }
+      }, 200)
     }
   }
 }
@@ -63,7 +67,7 @@ export function highlighTwoStopsToRight(
     (closestContainer?.querySelector('[data-label="stop"]') as HTMLElement) ?? null
   currentSiblingStop?.classList?.add('highlight-left')
   const siblingRect = currentSiblingStop?.getBoundingClientRect() ?? null
-  createLink(refLink, overRect, siblingRect)
+  createLinkBetweenStops(refLink, overRect, siblingRect)
   return currentSiblingStop
 }
 
@@ -76,7 +80,7 @@ export function highlighTwoStopsToLeft(
     (closestContainer?.querySelector('[data-label="stop"]') as HTMLElement) ?? null
   currentSiblingStop?.classList?.add('highlight-right')
   const siblingRect = currentSiblingStop?.getBoundingClientRect() ?? null
-  createLink(refLink, overRect, siblingRect)
+  createLinkBetweenStops(refLink, overRect, siblingRect)
   return currentSiblingStop
 }
 

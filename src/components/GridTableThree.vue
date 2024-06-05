@@ -88,21 +88,27 @@ function handleSetRows() {
   }
 }
 
-// Hay que tratar de que esto se un div fijo en el html y cambiarlo de posicion y ocultarlo sin
-// tener que crearlo y destruirlo que tiene mas coste y perjudica la animacion
-/*
-function createLink(starRect: DOMRect, endRect: DOMRect) {
-  const startX = starRect.right
-  const endX = endRect.left
-  const y = starRect.top + starRect.height / 2 - 1
-  if (refLink.value) {
-    refLink.value.style.top = `${y}px`
-    refLink.value.style.left = `${startX}px`
-    refLink.value.style.width = `${endX - startX}px`
-    refLink.value.classList.add('show-link')
+function highlightStopSide(
+  currentSide: StopSide,
+  currentOverContainer: HTMLElement,
+  overRect: DOMRect | null
+) {
+  if (currentSide === StopSide.right) {
+    lastStopSide = StopSide.right
+    currentOverStop?.classList?.add('highlight-right')
+    const closestContainer = getClosestRightElement(currentOverContainer)
+    if (closestContainer?.dataset?.row === currentOverContainer.dataset?.row) {
+      currentSiblingStop = highlighTwoStopsToRight(closestContainer, refLink, overRect)
+    }
+  } else {
+    lastStopSide = StopSide.left
+    currentOverStop?.classList?.add('highlight-left')
+    const closestContainer = getClosestLeftElement(currentOverContainer)
+    if (closestContainer?.dataset?.row === currentOverContainer?.dataset?.row) {
+      currentSiblingStop = highlighTwoStopsToLeft(closestContainer, refLink, overRect)
+    }
   }
 }
- */
 
 onMounted(() => {
   if (refGrid.value) {
@@ -141,24 +147,12 @@ onMounted(() => {
       draggableInstance.on('drag:move', (ev) => {
         if (currentOverContainer) {
           const overRect = currentOverStop?.getBoundingClientRect() ?? null
-          cleanStopsHighlighted(currentOverStop, currentSiblingStop, refLink.value)
-          const currentSide = getSide(ev.sensorEvent.clientXt, overRect)
-
-          if (currentSide === StopSide.right) {
-            lastStopSide = StopSide.right
-            currentOverStop?.classList?.add('highlight-right')
-            const closestContainer = getClosestRightElement(currentOverContainer)
-            if (closestContainer?.dataset?.row === currentOverContainer.dataset?.row) {
-              currentSiblingStop = highlighTwoStopsToRight(closestContainer, refLink, overRect)
-            }
-          } else {
-            lastStopSide = StopSide.left
-            currentOverStop?.classList?.add('highlight-left')
-            const closestContainer = getClosestLeftElement(currentOverContainer)
-            if (closestContainer?.dataset?.row === currentOverContainer?.dataset?.row) {
-              currentSiblingStop = highlighTwoStopsToLeft(closestContainer, refLink, overRect)
-            }
+          const currentSide = getSide(ev.sensorEvent.clientX, overRect)
+          if (currentSide !== lastStopSide) {
+            cleanStopsHighlighted(currentOverStop, currentSiblingStop, refLink.value)
+            highlightStopSide(currentSide, currentOverContainer, overRect)
           }
+          lastStopSide = currentSide
         }
       })
 
@@ -166,6 +160,13 @@ onMounted(() => {
         currentOverStop = ev.over
         currentOverContainer = ev.overContainer
         lastOverStop = ev.over
+        if (currentOverContainer) {
+          const overRect = currentOverStop?.getBoundingClientRect() ?? null
+          cleanStopsHighlighted(currentOverStop, currentSiblingStop, refLink.value)
+          const currentSide = getSide(ev.sensorEvent.clientX, overRect)
+          lastStopSide = currentSide
+          highlightStopSide(currentSide, currentOverContainer, overRect)
+        }
       })
 
       draggableInstance.on('drag:out', (ev) => {
