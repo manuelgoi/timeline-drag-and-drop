@@ -142,7 +142,7 @@ onMounted(() => {
         if (currentOverContainer) {
           const overRect = currentOverStop?.getBoundingClientRect() ?? null
           cleanStopsHighlighted(currentOverStop, currentSiblingStop, refLink.value)
-          const currentSide = getSide(ev.sensorEvent.clientX, overRect)
+          const currentSide = getSide(ev.sensorEvent.clientXt, overRect)
 
           if (currentSide === StopSide.right) {
             lastStopSide = StopSide.right
@@ -159,67 +159,6 @@ onMounted(() => {
               currentSiblingStop = highlighTwoStopsToLeft(closestContainer, refLink, overRect)
             }
           }
-          /*
-          // const overStop = currentOverContainer.querySelector('[data-label="stop"]') as HTMLDivElement
-          const overStop = currentOverStop
-          const overRect = overStop.getBoundingClientRect()
-          const eventX = ev.sensorEvent.clientX
-
-          overStop.classList.remove('highlight-left', 'highlight-right')
-          if (currentSiblingStop) {
-            currentSiblingStop.classList.remove('highlight-left', 'highlight-right')
-          }
-          const currentSide =
-            eventX > overRect.left + overRect.width / 2 ? StopSide.right : StopSide.left
-          console.log(
-            lastOverStop?.innerText,
-            currentOverStop?.innerText,
-            currentSide === StopSide.left ? 'left' : 'right'
-          )
-          if (currentSide === StopSide.right) {
-            lastStopSide = StopSide.right
-            overStop.classList.add('highlight-right')
-            let closestElement = currentOverContainer.nextElementSibling
-            while (
-              closestElement.dataset?.hasStops === 'false' &&
-              closestElement.dataset?.row === currentOverContainer.dataset?.row
-            ) {
-              closestElement = closestElement.nextElementSibling
-            }
-            if (closestElement.dataset?.row !== currentOverContainer.dataset?.row) {
-              // No hay elementos con columnas a la derecha
-              console.log('No previus Sibling elements at right side')
-            } else {
-              // console.log(currentOverContainer.dataset?.column, closestElement.dataset?.column)
-              currentSiblingStop = closestElement.querySelector('[data-label="stop"]')
-              currentSiblingStop.classList.add('highlight-left')
-              const siblingRect = currentSiblingStop.getBoundingClientRect()
-              refLink.value?.classList.remove('show-link')
-              createLink(overRect, siblingRect)
-            }
-          } else {
-            lastStopSide = StopSide.left
-            overStop.classList.add('highlight-left')
-            let closestElement = currentOverContainer?.previousElementSibling
-            while (
-              closestElement?.dataset?.hasStops === 'false' &&
-              closestElement?.dataset?.row === currentOverContainer?.dataset?.row
-            ) {
-              closestElement = closestElement?.previousElementSibling
-            }
-            if (closestElement?.dataset?.row !== currentOverContainer?.dataset?.row) {
-              // No hay elementos con columnas a la izquierda
-              console.log('No previus Sibling elements at left side')
-            } else {
-              // console.log(currentOverContainer?.dataset?.column, closestElement?.dataset?.column)
-              currentSiblingStop = closestElement.querySelector('[data-label="stop"]')
-              currentSiblingStop.classList.add('highlight-right')
-              const siblingRect = currentSiblingStop.getBoundingClientRect()
-              refLink.value?.classList.remove('show-link')
-              createLink(siblingRect, overRect)
-            }
-          }
-          */
         }
       })
 
