@@ -37,6 +37,7 @@
         <GridCell
           v-if="row > 1"
           v-for="cell in 10"
+          :id="`${row}${cell}`"
           :key="`${row}-${cell}`"
           :cells="vals"
           :row="row"
@@ -59,12 +60,14 @@ import {
   getClosestLeftElement,
   getClosestRightElement,
   getSide,
-  highlighTwoStopsToLeft,
-  highlighTwoStopsToRight
+  highlighStopInMyLeftSide,
+  highlighStopInMyRightSide,
+  removeAllShadowStops,
+  rndNum,
+  shadowAllStopsExcept
 } from '@/utils'
 import GridCell from '@/components/GridCell.vue'
 import { StopSide } from '@/index'
-import { colorFillStopOverAndSiblinlag } from '@/utils'
 
 const refInputRows = ref<HTMLInputElement | null>(null)
 const refGrid = ref<HTMLDivElement | null>(null)
@@ -93,19 +96,24 @@ function highlightStopSide(
   currentOverContainer: HTMLElement,
   overRect: DOMRect | null
 ) {
+  // Am I over stop right side
+  removeAllShadowStops()
   if (currentSide === StopSide.right) {
     lastStopSide = StopSide.right
-    currentOverStop?.classList?.add('highlight-right')
+    currentOverStop?.classList?.add('move-to-left')
     const closestContainer = getClosestRightElement(currentOverContainer)
     if (closestContainer?.dataset?.row === currentOverContainer.dataset?.row) {
-      currentSiblingStop = highlighTwoStopsToRight(closestContainer, refLink, overRect)
+      currentSiblingStop = highlighStopInMyRightSide(closestContainer, refLink, overRect)
+      shadowAllStopsExcept([currentOverStop?.id, currentSiblingStop?.id])
     }
+    // Am I over stop left side
   } else {
     lastStopSide = StopSide.left
-    currentOverStop?.classList?.add('highlight-left')
+    currentOverStop?.classList?.add('move-to-right')
     const closestContainer = getClosestLeftElement(currentOverContainer)
     if (closestContainer?.dataset?.row === currentOverContainer?.dataset?.row) {
-      currentSiblingStop = highlighTwoStopsToLeft(closestContainer, refLink, overRect)
+      currentSiblingStop = highlighStopInMyLeftSide(closestContainer, refLink, overRect)
+      shadowAllStopsExcept([currentOverStop?.id, currentSiblingStop?.id])
     }
   }
 }
@@ -149,6 +157,7 @@ onMounted(() => {
           const overRect = currentOverStop?.getBoundingClientRect() ?? null
           const currentSide = getSide(ev.sensorEvent.clientX, overRect)
           if (currentSide !== lastStopSide) {
+            console.log('drag:move recalculating', currentSide, lastStopSide)
             cleanStopsHighlighted(currentOverStop, currentSiblingStop, refLink.value)
             highlightStopSide(currentSide, currentOverContainer, overRect)
           }
@@ -160,7 +169,8 @@ onMounted(() => {
         currentOverStop = ev.over
         currentOverContainer = ev.overContainer
         lastOverStop = ev.over
-        if (currentOverContainer) {
+        if (currentOverContainer && ev.over?.id !== lastOverStop?.id) {
+          console.log('drag:over recalculating', ev.over?.id, lastOverStop?.id)
           const overRect = currentOverStop?.getBoundingClientRect() ?? null
           cleanStopsHighlighted(currentOverStop, currentSiblingStop, refLink.value)
           const currentSide = getSide(ev.sensorEvent.clientX, overRect)
@@ -170,36 +180,36 @@ onMounted(() => {
       })
 
       draggableInstance.on('drag:out', (ev) => {
-        if (currentOverContainer /* currentOverStop */) {
-          const overStop = ev.overContainer.querySelector('[data-label="stop"]')
-          overStop.classList.remove('highlight-left', 'highlight-right')
-          // currentOverStop.classList.remove('highlight-left', 'highlight-right')
+        console.log('drag:out')
+        if (currentOverStop) {
+          currentOverStop?.classList?.remove('move-to-left', 'move-to-right')
           lastOverStop = currentOverStop
           currentOverContainer = null
           currentOverStop = null
         }
         if (currentSiblingStop) {
-          currentSiblingStop.classList.remove('highlight-left', 'highlight-right')
+          currentSiblingStop.classList.remove('move-to-left', 'move-to-right')
           currentSiblingStop = null
         }
         refLink.value?.classList.remove('show-link')
         lastStopSide = null
+        removeAllShadowStops()
       })
 
       draggableInstance.on('drag:stop', (ev) => {
-        if (/*currentOverContainer*/ currentOverStop) {
-          // const overStop = currentOverContainer.querySelector('[data-label="stop"]')
-          // overStop.classList.remove('highlight-left', 'highlight-right')
-          currentOverStop.classList.remove('highlight-left', 'highlight-right')
+        console.log('drag:stop')
+        if (currentOverStop) {
+          currentOverStop.classList.remove('move-to-left', 'move-to-right')
           currentOverContainer = null
           currentOverStop = null
         }
         if (currentSiblingStop) {
-          currentSiblingStop.classList.remove('highlight-left', 'highlight-right')
+          currentSiblingStop.classList.remove('move-to-left', 'move-to-right')
           currentSiblingStop = null
         }
         refLink.value?.classList.remove('show-link')
         lastStopSide = null
+        removeAllShadowStops()
       })
     }
   } else {
@@ -216,18 +226,12 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-.highlight-left {
-  background: linear-gradient(to right, lightblue 50%, transparent 50%);
-}
-.highlight-right {
-  background: linear-gradient(to right, transparent 50%, lightblue 50%);
-}
 .dragging {
   cursor: grabbing !important;
 }
 .show-link {
   display: block;
-  z-index: 50;
+  //z-index: 50;
   transition:
     background 0.5s ease,
     transform 0.5s ease;

@@ -12,6 +12,7 @@
   >
     <slot />
     <div
+      :id="id"
       v-if="cells.includes(cell)"
       data-label="stop"
       class="absolute bg-amber-50 border-gray-400 hover:cursor-move h-[30px] w-[80px] border rounded-md font-bold flex justify-center items-center"
@@ -37,6 +38,7 @@
 </template>
 <script setup lang="ts">
 defineProps<{
+  id?: string
   row: number
   cell: number
   cells: number[]
@@ -46,22 +48,28 @@ defineProps<{
 </script>
 
 <style scoped>
-.highlight-left {
+.move-to-right {
   background: lightblue;
-  transform: translateX(10px); /* Mueve 20px a la izquierda */
+  /*transform: translateX(4px); */ /* Mueve 20px a la derecha */
+  /*transform: scale(1.2);*/
   transition:
     background 0.5s ease,
-    transform 0.8s ease; /* Añade transiciones para fondo y posición */
+    transform 0.8s ease;
 }
 
-.highlight-right {
+.move-to-left {
   background: lightblue;
-  transform: translateX(-10px); /* Mueve 20px a la derecha */
+  /*transform: translateX(-4px);*/ /* Mueve 20px a la izquierda */
+  /*transform: scale(1.2);*/
   transition:
     background 0.5s ease,
-    transform 0.8s ease; /* Añade transiciones para fondo y posición */
+    transform 0.8s ease;
 }
 .dragging {
   cursor: grabbing !important;
+}
+.shadow {
+  background-color: gray;
+  transition: background 0.8s ease;
 }
 </style>

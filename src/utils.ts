@@ -25,6 +25,10 @@ function generateUniqueValues(length: number, min: number, max: number): number[
   return Array.from(values)
 }
 
+export function rndNum(max: number, min: number): number {
+  return Math.floor(Math.random() * (max - min + 1)) + min
+}
+
 export function generateSequentialObject(end: number): Record<number, number[]> {
   const result: Record<number, number[]> = {}
   const array = Array.from({ length: 10 }, (_, i) => i + 1)
@@ -42,9 +46,10 @@ function createLinkBetweenStops(
   endRect: DOMRect | null
 ) {
   if (starRect && endRect) {
-    const startX = starRect.right - 10
-    const endX = endRect.left + 10
+    const startX = starRect.right
+    const endX = endRect.left
     const y = starRect.top + starRect.height / 2 - 1
+    console.log(startX, endX - startX)
     if (refLink.value) {
       refLink.value.style.top = `${y}px`
       refLink.value.style.left = `${startX}px`
@@ -58,29 +63,29 @@ function createLinkBetweenStops(
   }
 }
 
-export function highlighTwoStopsToRight(
+export function highlighStopInMyRightSide(
   closestContainer: HTMLElement | null,
   refLink: Ref<HTMLDivElement | null>,
   overRect: DOMRect | null
 ): HTMLElement | null {
   const currentSiblingStop =
     (closestContainer?.querySelector('[data-label="stop"]') as HTMLElement) ?? null
-  currentSiblingStop?.classList?.add('highlight-left')
+  currentSiblingStop?.classList?.add('move-to-right')
   const siblingRect = currentSiblingStop?.getBoundingClientRect() ?? null
   createLinkBetweenStops(refLink, overRect, siblingRect)
   return currentSiblingStop
 }
 
-export function highlighTwoStopsToLeft(
+export function highlighStopInMyLeftSide(
   closestContainer: HTMLElement | null,
   refLink: Ref<HTMLDivElement | null>,
   overRect: DOMRect | null
 ): HTMLElement | null {
   const currentSiblingStop =
     (closestContainer?.querySelector('[data-label="stop"]') as HTMLElement) ?? null
-  currentSiblingStop?.classList?.add('highlight-right')
+  currentSiblingStop?.classList?.add('move-to-left')
   const siblingRect = currentSiblingStop?.getBoundingClientRect() ?? null
-  createLinkBetweenStops(refLink, overRect, siblingRect)
+  createLinkBetweenStops(refLink, siblingRect, overRect)
   return currentSiblingStop
 }
 
@@ -90,10 +95,10 @@ export function cleanStopsHighlighted(
   refLink: HTMLDivElement | null
 ) {
   if (overStop) {
-    overStop.classList.remove('highlight-left', 'highlight-right')
+    overStop.classList.remove('move-to-left', 'move-to-right')
   }
   if (siblingStop) {
-    siblingStop.classList.remove('highlight-left', 'highlight-right')
+    siblingStop.classList.remove('move-to-left', 'move-to-right')
   }
   if (refLink) {
     refLink.classList.remove('show-link')
@@ -104,6 +109,26 @@ export function getSide(x: number, rect: DOMRect | null): StopSide {
   const left = rect?.left ?? 0
   const width = rect?.width ?? 0
   return x > left + width / 2 ? StopSide.right : StopSide.left
+}
+
+/*
+ * Quizas se pueda mejorar el sistema para aplicar el shadow solo en las que son
+ * visibles dentro del timeline
+ */
+export function shadowAllStopsExcept(excludeIds: [string | undefined, string | undefined]) {
+  const allStops = document.querySelectorAll("[data-label='stop']")
+  allStops.forEach((stop) => {
+    if (!excludeIds.includes(stop?.id)) {
+      stop.classList.add('shadow')
+    }
+  })
+}
+
+export function removeAllShadowStops() {
+  const allStops = document.querySelectorAll("[data-label='stop']")
+  allStops.forEach((stop) => {
+    stop.classList.remove('shadow')
+  })
 }
 
 export function getClosestLeftElement(
