@@ -34,7 +34,7 @@ export function generateRandomCollection(
 ): { id: string; value: number; row: number; col: number }[] {
   const result = []
 
-  for (let i = 1; i <= maxKeys; i++) {
+  for (let i = 0; i <= maxKeys; i++) {
     const key = i
     const arrayLength = Math.floor(Math.random() * cols) + 1
     const uniqueValues = generateUniqueValues(arrayLength, 0, cols)
@@ -87,7 +87,6 @@ function createLinkBetweenStops(
     const startX = starRect.right
     const endX = endRect.left
     const y = starRect.top + starRect.height / 2 - 1
-    console.log(startX, endX - startX)
     if (refLink.value) {
       refLink.value.style.top = `${y}px`
       refLink.value.style.left = `${startX}px`
@@ -114,6 +113,18 @@ export function highlighStopInMyRightSide(
   return currentSiblingStop
 }
 
+export function highlighToTheEndOfMyRightSide(
+  lastCell: HTMLElement | null,
+  refLink: Ref<HTMLDivElement | null>,
+  overRect: DOMRect | null
+) {
+  const cellRect = lastCell?.getBoundingClientRect() ?? null
+  const rightRect = {
+    left: cellRect?.right ?? 0
+  } as DOMRect
+  createLinkBetweenStops(refLink, overRect, rightRect)
+}
+
 export function highlighStopInMyLeftSide(
   closestContainer: HTMLElement | null,
   refLink: Ref<HTMLDivElement | null>,
@@ -122,9 +133,27 @@ export function highlighStopInMyLeftSide(
   const currentSiblingStop =
     (closestContainer?.querySelector('[data-label="stop"]') as HTMLElement) ?? null
   currentSiblingStop?.classList?.add('move-to-left')
-  const siblingRect = currentSiblingStop?.getBoundingClientRect() ?? null
+  const siblingRect = currentSiblingStop?.getBoundingClientRect() ?? {
+    right: 0,
+    top: overRect?.top,
+    height: overRect?.height
+  }
   createLinkBetweenStops(refLink, siblingRect, overRect)
   return currentSiblingStop
+}
+
+export function highlighToTheEndOfMyLeftSide(
+  firstCell: HTMLElement | null,
+  refLink: Ref<HTMLDivElement | null>,
+  overRect: DOMRect | null
+) {
+  const cellRect = firstCell?.getBoundingClientRect() ?? null
+  const leftRect = {
+    right: cellRect?.left ?? 0,
+    top: overRect?.top,
+    height: overRect?.height
+  } as DOMRect
+  createLinkBetweenStops(refLink, leftRect, overRect)
 }
 
 export function cleanStopsHighlighted(
@@ -153,7 +182,7 @@ export function getSide(x: number, rect: DOMRect | null): StopSide {
  * Quizas se pueda mejorar el sistema para aplicar el shadow solo en las que son
  * visibles dentro del timeline
  */
-export function shadowAllStopsExcept(excludeIds: [string | undefined, string | undefined]) {
+export function shadowAllStopsExcept(excludeIds: (string | undefined)[]) {
   const allStops = document.querySelectorAll("[data-label='stop']")
   allStops.forEach((stop) => {
     if (!excludeIds.includes(stop?.id)) {
@@ -172,26 +201,34 @@ export function removeAllShadowStops() {
 export function getClosestLeftElement(
   currentOverContainer: HTMLElement | null
 ): HTMLElement | null {
-  let closestElement: HTMLElement | null =
-    currentOverContainer?.previousElementSibling as HTMLElement
+  let closestElement: HTMLElement | null = parent(currentOverContainer)
+    ?.previousElementSibling as HTMLElement
   while (
-    closestElement?.dataset?.hasStops === 'false' &&
-    closestElement?.dataset?.row === currentOverContainer?.dataset?.row
+    child(closestElement)?.dataset?.hasStops === 'false' &&
+    child(closestElement)?.dataset?.row === currentOverContainer?.dataset?.row
   ) {
     closestElement = closestElement?.previousElementSibling as HTMLElement
   }
-  return closestElement
+  return child(closestElement)
 }
 
+function parent(node: HTMLElement | null): HTMLElement | null {
+  return node?.parentElement ?? null
+}
+
+function child(node: HTMLElement | null): HTMLElement | null {
+  return (node?.querySelector("[data-label='cell']") as HTMLElement) ?? null
+}
 export function getClosestRightElement(
   currentOverContainer: HTMLElement | null
 ): HTMLElement | null {
-  let closestElement: HTMLElement | null = currentOverContainer?.nextElementSibling as HTMLElement
+  let closestElement: HTMLElement | null = parent(currentOverContainer)
+    ?.nextElementSibling as HTMLElement
   while (
-    closestElement?.dataset?.hasStops === 'false' &&
-    closestElement?.dataset?.row === currentOverContainer?.dataset?.row
+    child(closestElement)?.dataset?.hasStops === 'false' &&
+    child(closestElement)?.dataset?.row === currentOverContainer?.dataset?.row
   ) {
     closestElement = closestElement.nextElementSibling as HTMLElement
   }
-  return closestElement
+  return child(closestElement)
 }
