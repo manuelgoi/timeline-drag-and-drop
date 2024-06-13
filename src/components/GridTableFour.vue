@@ -30,7 +30,8 @@
       >
         <div
           v-if="item?.col === 0"
-          class="absolute bg-gray-200 h-1 top-1/2"
+          data-label="horizontal-guide"
+          class="absolute z-10 bg-gray-200 h-1 top-1/2"
           :style="{ width: scrollWidthTable + 'px' }"
         />
         <div
@@ -52,7 +53,7 @@
             v-if="item?.value !== null"
             :id="item?.id"
             data-label="stop"
-            class="absolute bg-amber-50 border-gray-200 hover:cursor-move h-[30px] w-[80px] border rounded-md font-bold flex justify-center items-center"
+            class="absolute z-20 bg-amber-50 border-gray-200 hover:cursor-move h-[30px] w-[80px] border rounded-md font-bold flex justify-center items-center"
           >
             {{ item?.value }}
             <MirrorCell class="hidden" />
@@ -71,6 +72,7 @@ import {
   getClosestLeftElement,
   getClosestRightElement,
   getSide,
+  hideLinkBetweenStops,
   highlighStopInMyLeftSide,
   highlighStopInMyRightSide,
   highlighToTheEndOfMyLeftSide,
@@ -79,7 +81,7 @@ import {
   removeAllShadowStops,
   shadowAllStopsExcept
 } from '@/utilsFour'
-import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
+import { computed, nextTick, onUnmounted, ref } from 'vue'
 import { RecycleScroller } from 'vue-virtual-scroller'
 import 'vue-virtual-scroller/dist/vue-virtual-scroller.css'
 import {
@@ -105,8 +107,8 @@ const stopLength = computed(
 const tableRef = ref<HTMLDivElement | null>(null)
 const scrollWidthTable = ref(0)
 const refInputRows = ref<HTMLInputElement | null>(null)
-
 const refLink = ref<HTMLDivElement | null>(null)
+
 let draggableInstance: Draggable | null = null
 let currentOverContainer: HTMLElement | null = null
 let currentOverStop: HTMLElement | null = null
@@ -137,7 +139,6 @@ function initDraggable() {
   if (cells) {
     draggableCells = Array.from(cells) as HTMLElement[]
     draggableInstance = createDraggable(draggableCells)
-    // draggableInstance.removePlugin(Draggable.Plugins.Scrollable)
     draggableInstance.on('mirror:created', handleDragMirrorCreated)
     draggableInstance.on('drag:start', hanldeDragStart)
     draggableInstance.on('drag:move', handleDragMove)
@@ -195,11 +196,6 @@ function hanldeDragStart() {
   document.body.classList.add('dragging')
 }
 
-/*
- * TO-DO
- * Si se pasa arrastrando en un movimiento diagonal sobre la esquina inferior derecha
- * de una parada esta deja el linkRef cambiado por error
- */
 function handleDragMove(ev: DragMoveEvent) {
   if (currentOverContainer) {
     const overRect = currentOverStop?.getBoundingClientRect() ?? null
@@ -236,7 +232,7 @@ function handleDragOut(/*ev: DragOutEvent*/) {
     currentSiblingStop.classList.remove('move-to-left', 'move-to-right')
     currentSiblingStop = null
   }
-  refLink.value?.classList.remove('show-link')
+  hideLinkBetweenStops(refLink)
   lastStopSide = null
   removeAllShadowStops()
 }
@@ -251,15 +247,15 @@ function handleDragStop(/*ev: DragStopEvent*/) {
     currentSiblingStop.classList.remove('move-to-left', 'move-to-right')
     currentSiblingStop = null
   }
-  refLink.value?.classList.remove('show-link')
+  hideLinkBetweenStops(refLink)
   lastStopSide = null
   removeAllShadowStops()
 }
 
 /*
  * TO-DO
- * Cuando se crea un refLink con direccion derecha en la penultima parada teniendo una mas
- * a la derecha. El refLink se sobre dibuja a la parada
+ * Si se pasa arrastrando en un movimiento diagonal sobre la esquina inferior derecha
+ * de una parada esta deja el linkRef cambiado por error
  */
 function highlightStopSide(
   currentSide: StopSide,
@@ -280,6 +276,7 @@ function highlightStopSide(
       currentSiblingStop = highlighStopInMyRightSide(closestContainer, refLink, overRect)
       shadowAllStopsExcept([currentOverStop?.id, currentSiblingStop?.id])
     } else {
+      console.log('no current sibling')
       highlighToTheEndOfMyRightSide(tableRef.value, refLink, overRect, 8)
       shadowAllStopsExcept([currentOverStop?.id])
     }
@@ -315,7 +312,11 @@ function handleVirtualScrollIsVisible() {
 }
 
 function handleVirtualScrollScrollStart() {
-  refLink.value?.classList.remove('show-link')
+  const guides = tableRef.value?.querySelectorAll('[data-label="horizontal-guide"]')
+  if (guides) {
+    guides.forEach((el) => el.classList.add('hide-guide'))
+  }
+  hideLinkBetweenStops(refLink)
   removeAllShadowStops()
 }
 
@@ -327,6 +328,12 @@ function handleVirtualScrollScrollEnd() {
       draggableCells = Array.from(cells) as HTMLElement[]
       draggableInstance.addContainer(...draggableCells)
     }
+  }
+  const guides = tableRef.value?.querySelectorAll('[data-label="horizontal-guide"]')
+  if (guides) {
+    setTimeout(() => {
+      guides.forEach((el) => el.classList.remove('hide-guide'))
+    }, 200)
   }
 }
 </script>
@@ -358,5 +365,10 @@ function handleVirtualScrollScrollEnd() {
     background 0.5s ease,
     transform 0.5s ease;
   background: lightblue;
+}
+
+.hide-guide {
+  opacity: 0;
+  transition: opacity 0.5s ease;
 }
 </style>

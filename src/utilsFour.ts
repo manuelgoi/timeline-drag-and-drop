@@ -1,8 +1,8 @@
 import { StopSide } from '@/index'
-import { ref, type Ref } from 'vue'
+import { type Ref } from 'vue'
 
 export function generateRandomObject(maxKeys: number): Record<number, number[]> {
-  const result = {}
+  const result: Record<number, number[]> = {}
 
   for (let i = 1; i <= maxKeys; i++) {
     const key = i
@@ -31,7 +31,7 @@ export function generateRandomArray(maxKeys: number, cols: number): unknown[][] 
 export function generateRandomCollection(
   maxKeys: number,
   cols: number
-): { id: string; value: number; row: number; col: number }[] {
+): { id: string; value: number | null; row: number; col: number }[] {
   const result = []
 
   for (let i = 0; i <= maxKeys; i++) {
@@ -100,6 +100,15 @@ function createLinkBetweenStops(
   }
 }
 
+export function hideLinkBetweenStops(refLink: Ref<HTMLDivElement | null>) {
+  if (refLink.value) {
+    refLink.value.classList.remove('show-link')
+    refLink.value.style.width = '0px'
+    refLink.value.style.top = '0px'
+    refLink.value.style.left = '0px'
+  }
+}
+
 export function highlighStopInMyRightSide(
   closestContainer: HTMLElement | null,
   refLink: Ref<HTMLDivElement | null>,
@@ -164,10 +173,10 @@ export function isChildVisible(parent: HTMLElement | null, child: HTMLElement | 
     const childRect = child.getBoundingClientRect()
 
     const isVisible =
-      childRect.top >= parentRect.top &&
-      childRect.left >= parentRect.left &&
-      childRect.bottom <= parentRect.bottom &&
-      childRect.right <= parentRect.right
+      childRect.bottom > parentRect.top &&
+      childRect.top < parentRect.bottom &&
+      childRect.right > parentRect.left &&
+      childRect.left < parentRect.right
 
     return isVisible
   }
