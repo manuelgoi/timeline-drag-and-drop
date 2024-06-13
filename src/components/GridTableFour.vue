@@ -1,5 +1,5 @@
 <template>
-  <div class="h-svh w-full p-4 flex flex-col items-center justify-center h-full">
+  <div class="h-svh w-full p-4 flex flex-col items-center justify-center">
     <fieldset class="border rounded-md border-gray-200 p-4 mb-4 flex flex-col">
       <legend class="font-bold">Grid Stats</legend>
       <label>Rows: {{ rows }} </label>
@@ -21,13 +21,18 @@
         :item-size="cellHeight"
         :grid-items="cols"
         :item-secondary-size="cellWidth"
-        class="overflow-auto h-[500px]"
-        listClass="!overflow-x-auto"
+        class="overflow-auto h-[500px] recycle-scroller-parent"
+        listClass="recycle-scroller-vertical"
         @visible="handleVirtualScrollIsVisible"
         @scrollend="handleVirtualScrollScrollEnd"
+        @scroll="handleVirtualScrollScrollStart"
         v-slot="{ item }"
       >
-        <div v-if="item?.col === 0" class="absolute bg-gray-200 h-1 w-[1000%] top-1/2" />
+        <div
+          v-if="item?.col === 0"
+          class="absolute bg-gray-200 h-1 top-1/2"
+          :style="{ width: scrollWidthTable + 'px' }"
+        />
         <div
           data-label="cell"
           :data-index="item.id"
@@ -54,8 +59,8 @@
           </div>
         </div>
       </RecycleScroller>
+      <div ref="refLink" class="absolute hidden h-1" />
     </div>
-    <div ref="refLink" class="absolute hidden h-1" />
   </div>
 </template>
 
@@ -70,6 +75,7 @@ import {
   highlighStopInMyRightSide,
   highlighToTheEndOfMyLeftSide,
   highlighToTheEndOfMyRightSide,
+  isChildVisible,
   removeAllShadowStops,
   shadowAllStopsExcept
 } from '@/utilsFour'
@@ -80,7 +86,8 @@ import {
   Draggable,
   type DragMoveEvent,
   type DragOverEvent,
-  type MirrorCreatedEvent
+  type MirrorCreatedEvent,
+  type SensorEvent
 } from '@shopify/draggable'
 import MirrorCell from '@/components/MirrorCell.vue'
 import { StopSide } from '@/index'
@@ -89,11 +96,14 @@ const rows = ref(93)
 const cols = ref(23)
 const cellHeight = ref(70)
 const cellWidth = ref(150)
+const MIRROR_OFFSET_X: Readonly<number> = 13
+
 const data = computed(() => generateRandomCollection(rows.value, cols.value) ?? [])
 const stopLength = computed(
   () => data.value?.reduce((acc, next) => (next.value > 0 ? (acc = acc + 1) : acc), 0) ?? 0
 )
 const tableRef = ref<HTMLDivElement | null>(null)
+const scrollWidthTable = ref(0)
 const refInputRows = ref<HTMLInputElement | null>(null)
 
 const refLink = ref<HTMLDivElement | null>(null)
@@ -103,6 +113,7 @@ let currentOverStop: HTMLElement | null = null
 let currentSiblingStop: HTMLElement | null = null
 let lastOverStop: HTMLElement | null = null
 let lastStopSide: StopSide | null = null
+let draggableCells: HTMLElement[] | null = null
 
 onUnmounted(() => {
   if (draggableInstance) {
@@ -122,9 +133,11 @@ async function handleSetRows() {
 }
 
 function initDraggable() {
-  const cells = tableRef.value?.querySelectorAll('[data-label="cell"]')
+  const cells = tableRef.value?.querySelectorAll('[data-label="cell"]') ?? null
   if (cells) {
-    draggableInstance = createDraggable(cells)
+    draggableCells = Array.from(cells) as HTMLElement[]
+    draggableInstance = createDraggable(draggableCells)
+    // draggableInstance.removePlugin(Draggable.Plugins.Scrollable)
     draggableInstance.on('mirror:created', handleDragMirrorCreated)
     draggableInstance.on('drag:start', hanldeDragStart)
     draggableInstance.on('drag:move', handleDragMove)
@@ -136,10 +149,15 @@ function initDraggable() {
   }
 }
 
-function createDraggable(root: NodeListOf<Element>) {
+function createDraggable(root: HTMLElement[]) {
+  const verticalScrollElement = document.querySelector('.recycle-scroller-parent') as HTMLElement
   return new Draggable(root, {
     draggable: '[data-label="stop"]',
     delay: 0,
+    scrollable: {
+      speed: 3,
+      scrollableElements: [verticalScrollElement]
+    },
     mirror: {
       constrainDimensions: true,
       cursorOffsetY: 60,
@@ -159,12 +177,15 @@ function handleDragMirrorCreated(event: MirrorCreatedEvent) {
   event.mirror.style.border = '0'
   event.mirror.style.backgroundColor = 'transparent'
   event.mirror.style.color = 'transparent'
+  event.mirror.dataset.label = 'mirror'
   const mirror = event.mirror.querySelector("[data-label='mirror']") as HTMLElement
   if (mirror) {
+    const sourceRect = event.source.getBoundingClientRect()
+    const left = event.sensorEvent.clientX - sourceRect.left - MIRROR_OFFSET_X
     mirror.style.display = 'block'
     mirror.style.position = 'absolute'
     mirror.style.top = '1px'
-    mirror.style.left = '1px'
+    mirror.style.left = `${left}px`
   } else {
     console.log('Draggable no found mirror cell. Mirror cell disabled')
   }
@@ -174,6 +195,11 @@ function hanldeDragStart() {
   document.body.classList.add('dragging')
 }
 
+/*
+ * TO-DO
+ * Si se pasa arrastrando en un movimiento diagonal sobre la esquina inferior derecha
+ * de una parada esta deja el linkRef cambiado por error
+ */
 function handleDragMove(ev: DragMoveEvent) {
   if (currentOverContainer) {
     const overRect = currentOverStop?.getBoundingClientRect() ?? null
@@ -230,6 +256,11 @@ function handleDragStop(/*ev: DragStopEvent*/) {
   removeAllShadowStops()
 }
 
+/*
+ * TO-DO
+ * Cuando se crea un refLink con direccion derecha en la penultima parada teniendo una mas
+ * a la derecha. El refLink se sobre dibuja a la parada
+ */
 function highlightStopSide(
   currentSide: StopSide,
   currentOverContainer: HTMLElement,
@@ -241,14 +272,15 @@ function highlightStopSide(
     lastStopSide = StopSide.right
     currentOverStop?.classList?.add('move-to-left')
     const closestContainer = getClosestRightElement(currentOverContainer)
-    if (closestContainer?.dataset?.row === currentOverContainer.dataset?.row) {
+    const isClosestContainerVisible = isChildVisible(tableRef.value, closestContainer)
+    if (
+      isClosestContainerVisible &&
+      closestContainer?.dataset?.row === currentOverContainer.dataset?.row
+    ) {
       currentSiblingStop = highlighStopInMyRightSide(closestContainer, refLink, overRect)
       shadowAllStopsExcept([currentOverStop?.id, currentSiblingStop?.id])
     } else {
-      const lastCell = tableRef.value?.querySelector(
-        `[data-row='${currentOverContainer?.dataset?.row}'][data-column='${cols.value - 1}']`
-      ) as HTMLElement
-      highlighToTheEndOfMyRightSide(lastCell, refLink, overRect)
+      highlighToTheEndOfMyRightSide(tableRef.value, refLink, overRect, 8)
       shadowAllStopsExcept([currentOverStop?.id])
     }
     // Am I over stop left side
@@ -256,14 +288,15 @@ function highlightStopSide(
     lastStopSide = StopSide.left
     currentOverStop?.classList?.add('move-to-right')
     const closestContainer = getClosestLeftElement(currentOverContainer)
-    if (closestContainer?.dataset?.row === currentOverContainer?.dataset?.row) {
+    const isClosestContainerVisible = isChildVisible(tableRef.value, closestContainer)
+    if (
+      isClosestContainerVisible &&
+      closestContainer?.dataset?.row === currentOverContainer?.dataset?.row
+    ) {
       currentSiblingStop = highlighStopInMyLeftSide(closestContainer, refLink, overRect)
       shadowAllStopsExcept([currentOverStop?.id, currentSiblingStop?.id])
     } else {
-      const firstCell = tableRef.value?.querySelector(
-        `[data-row='${currentOverContainer?.dataset?.row}'][data-column='0']`
-      ) as HTMLElement
-      highlighToTheEndOfMyLeftSide(firstCell, refLink, overRect)
+      highlighToTheEndOfMyLeftSide(tableRef.value, refLink, overRect, 8)
       shadowAllStopsExcept([currentOverStop?.id])
     }
   }
@@ -274,13 +307,27 @@ function handleVirtualScrollIsVisible() {
     draggableInstance.destroy()
   }
   initDraggable()
+  const recycleVertical = tableRef.value?.querySelector('.recycle-scroller-vertical') as HTMLElement
+  if (recycleVertical) {
+    scrollWidthTable.value = recycleVertical?.scrollWidth ?? 0
+    recycleVertical.style.minWidth = `${scrollWidthTable.value}px`
+  }
+}
+
+function handleVirtualScrollScrollStart() {
+  refLink.value?.classList.remove('show-link')
+  removeAllShadowStops()
 }
 
 function handleVirtualScrollScrollEnd() {
-  if (draggableInstance) {
-    draggableInstance.destroy()
+  if (draggableInstance && draggableCells) {
+    draggableInstance.removeContainer(...draggableCells)
+    const cells = tableRef.value?.querySelectorAll('[data-label="cell"]') ?? null
+    if (cells) {
+      draggableCells = Array.from(cells) as HTMLElement[]
+      draggableInstance.addContainer(...draggableCells)
+    }
   }
-  initDraggable()
 }
 </script>
 

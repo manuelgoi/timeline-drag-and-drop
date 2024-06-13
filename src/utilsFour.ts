@@ -114,13 +114,14 @@ export function highlighStopInMyRightSide(
 }
 
 export function highlighToTheEndOfMyRightSide(
-  lastCell: HTMLElement | null,
+  refElement: HTMLElement | null,
   refLink: Ref<HTMLDivElement | null>,
-  overRect: DOMRect | null
+  overRect: DOMRect | null,
+  padding: number
 ) {
-  const cellRect = lastCell?.getBoundingClientRect() ?? null
+  const cellRect = refElement?.getBoundingClientRect() ?? null
   const rightRect = {
-    left: cellRect?.right ?? 0
+    left: cellRect?.right ? cellRect.right - padding : 0
   } as DOMRect
   createLinkBetweenStops(refLink, overRect, rightRect)
 }
@@ -143,17 +144,34 @@ export function highlighStopInMyLeftSide(
 }
 
 export function highlighToTheEndOfMyLeftSide(
-  firstCell: HTMLElement | null,
+  refElement: HTMLElement | null,
   refLink: Ref<HTMLDivElement | null>,
-  overRect: DOMRect | null
+  overRect: DOMRect | null,
+  padding: number
 ) {
-  const cellRect = firstCell?.getBoundingClientRect() ?? null
+  const cellRect = refElement?.getBoundingClientRect() ?? null
   const leftRect = {
-    right: cellRect?.left ?? 0,
+    right: cellRect?.left ? cellRect.left + padding : 0,
     top: overRect?.top,
     height: overRect?.height
   } as DOMRect
   createLinkBetweenStops(refLink, leftRect, overRect)
+}
+
+export function isChildVisible(parent: HTMLElement | null, child: HTMLElement | null): boolean {
+  if (parent && child) {
+    const parentRect = parent.getBoundingClientRect()
+    const childRect = child.getBoundingClientRect()
+
+    const isVisible =
+      childRect.top >= parentRect.top &&
+      childRect.left >= parentRect.left &&
+      childRect.bottom <= parentRect.bottom &&
+      childRect.right <= parentRect.right
+
+    return isVisible
+  }
+  return false
 }
 
 export function cleanStopsHighlighted(
