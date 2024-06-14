@@ -1,4 +1,4 @@
-export enum StopSide {
+export enum ElementSide {
   left,
   right
 }

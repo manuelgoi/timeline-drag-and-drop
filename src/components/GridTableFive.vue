@@ -36,7 +36,7 @@
         />
         <div
           data-label="cell"
-          :data-index="item.id"
+          :id="item?.row + '-' + item?.col"
           :data-row="item?.row"
           :data-column="item?.col"
           :data-has-stops="item?.value !== null"
@@ -67,6 +67,7 @@
 
 <script setup lang="ts">
 import {
+  child,
   cleanStopsHighlighted,
   generateRandomCollection,
   getClosestLeftElement,
@@ -77,22 +78,30 @@ import {
   highlighStopInMyRightSide,
   highlighToTheEndOfMyLeftSide,
   highlighToTheEndOfMyRightSide,
+  highlisghtStops,
   isChildVisible,
   removeAllShadowStops,
   shadowAllStopsExcept
-} from '@/utilsFour'
+} from '@/utilsFive'
 import { computed, nextTick, onUnmounted, ref } from 'vue'
 import { RecycleScroller } from 'vue-virtual-scroller'
 import 'vue-virtual-scroller/dist/vue-virtual-scroller.css'
 import {
   Draggable,
   type DragMoveEvent,
+  type DragOutContainerEvent,
+  type DragOverContainerEvent,
   type DragOverEvent,
   type MirrorCreatedEvent,
   type SensorEvent
 } from '@shopify/draggable'
 import MirrorCell from '@/components/MirrorCell.vue'
 import { ElementSide } from '@/index'
+
+enum DragOverType {
+  cell,
+  stop
+}
 
 const rows = ref(93)
 const cols = ref(23)
@@ -116,6 +125,7 @@ let currentSiblingStop: HTMLElement | null = null
 let lastOverStop: HTMLElement | null = null
 let lastStopSide: ElementSide | null = null
 let draggableCells: HTMLElement[] | null = null
+let currentOverType: DragOverType | null = null
 
 onUnmounted(() => {
   if (draggableInstance) {
@@ -145,6 +155,8 @@ function initDraggable() {
     draggableInstance.on('drag:over', handleDragOver)
     draggableInstance.on('drag:out', handleDragOut)
     draggableInstance.on('drag:stop', handleDragStop)
+    draggableInstance.on('drag:over:container', handleDragOverContainer)
+    draggableInstance.on('drag:out:container', handleDragOutContainer)
   } else {
     console.error('No table found. Draggable is disabled !')
   }
@@ -197,18 +209,15 @@ function hanldeDragStart() {
 }
 
 function handleDragMove(ev: DragMoveEvent) {
-  if (currentOverContainer) {
-    const overRect = currentOverStop?.getBoundingClientRect() ?? null
-    const currentSide = getSide(ev.sensorEvent.clientX, overRect)
-    if (currentSide !== lastStopSide) {
-      cleanStopsHighlighted(currentOverStop, currentSiblingStop, refLink.value)
-      highlightStopSide(currentSide, currentOverContainer, overRect)
-    }
-    lastStopSide = currentSide
+  if (currentOverType === DragOverType.stop) {
+    processOverStopMovement(ev)
+  } else if (currentOverType === DragOverType.cell) {
+    processOverCellMovement(ev)
   }
 }
 
 function handleDragOver(ev: DragOverEvent) {
+  currentOverType = DragOverType.stop
   currentOverStop = ev.over
   currentOverContainer = ev.overContainer
   lastOverStop = ev.over
@@ -221,7 +230,14 @@ function handleDragOver(ev: DragOverEvent) {
   }
 }
 
+function handleDragOverContainer(ev: DragOverContainerEvent) {
+  currentOverType = DragOverType.cell
+  currentOverContainer = ev.overContainer
+}
+
 function handleDragOut(/*ev: DragOutEvent*/) {
+  console.log('OUT stop')
+  currentOverType = null
   if (currentOverStop) {
     currentOverStop?.classList?.remove('move-to-left', 'move-to-right')
     lastOverStop = currentOverStop
@@ -237,7 +253,15 @@ function handleDragOut(/*ev: DragOutEvent*/) {
   removeAllShadowStops()
 }
 
-function handleDragStop(/*ev: DragStopEvent*/) {
+function handleDragOutContainer() {
+  resetTable()
+}
+
+function handleDragStop() {
+  resetTable()
+}
+
+function resetTable() {
   if (currentOverStop) {
     currentOverStop.classList.remove('move-to-left', 'move-to-right')
     currentOverContainer = null
@@ -252,11 +276,50 @@ function handleDragStop(/*ev: DragStopEvent*/) {
   removeAllShadowStops()
 }
 
-/*
- * TO-DO
- * Si se pasa arrastrando en un movimiento diagonal sobre la esquina inferior derecha
- * de una parada esta deja el linkRef cambiado por error
- */
+function processOverStopMovement(ev: DragMoveEvent) {
+  if (currentOverContainer) {
+    const overRect = currentOverStop?.getBoundingClientRect() ?? null
+    const currentSide = getSide(ev.sensorEvent.clientX, overRect)
+    if (currentSide !== lastStopSide) {
+      cleanStopsHighlighted(currentOverStop, currentSiblingStop, refLink.value)
+      highlightStopSide(currentSide, currentOverContainer, overRect)
+    }
+    lastStopSide = currentSide
+  }
+}
+
+function processOverCellMovement(ev) {
+  if (currentOverContainer) {
+    let side: ElementSide | null = null
+    if (currentOverContainer?.dataset?.hasStops === 'true') {
+      const overContainerRect = currentOverContainer?.getBoundingClientRect()
+      side = getSide(ev.sensorEvent.clientX, overContainerRect)
+    }
+    let rightSiblingContainer: HTMLElement | null = null
+    let leftSiblingContainer: HTMLElement | null = null
+    if (side === ElementSide.left) {
+      rightSiblingContainer = currentOverContainer
+      leftSiblingContainer = getClosestLeftElement(currentOverContainer)
+    } else if (side === ElementSide.right) {
+      leftSiblingContainer = currentOverContainer
+      rightSiblingContainer = getClosestRightElement(currentOverContainer)
+    } else {
+      rightSiblingContainer = getClosestRightElement(currentOverContainer)
+      leftSiblingContainer = getClosestLeftElement(currentOverContainer)
+    }
+    if (rightSiblingContainer && leftSiblingContainer) {
+      const { leftStop, rightStop } = highlisghtStops(
+        leftSiblingContainer,
+        rightSiblingContainer,
+        refLink
+      )
+      shadowAllStopsExcept([leftStop?.id, rightStop?.id])
+      currentOverStop = leftStop
+      currentSiblingStop = rightStop
+    }
+  }
+}
+
 function highlightStopSide(
   currentSide: ElementSide,
   currentOverContainer: HTMLElement,

@@ -167,6 +167,21 @@ export function highlighToTheEndOfMyLeftSide(
   createLinkBetweenStops(refLink, leftRect, overRect)
 }
 
+export function highlisghtStops(
+  leftContainer: HTMLElement | null,
+  rightContainer: HTMLElement | null,
+  refLink: Ref<HTMLDivElement | null>
+) {
+  const leftStop = (leftContainer?.querySelector('[data-label="stop"]') as HTMLElement) ?? null
+  leftStop?.classList?.add('move-to-left')
+  const rightStop = (rightContainer?.querySelector('[data-label="stop"]') as HTMLElement) ?? null
+  rightStop?.classList?.add('move-to-left')
+  const leftRect = leftStop?.getBoundingClientRect()
+  const rightRect = rightStop?.getBoundingClientRect()
+  createLinkBetweenStops(refLink, leftRect, rightRect)
+  return { leftStop, rightStop }
+}
+
 export function isChildVisible(parent: HTMLElement | null, child: HTMLElement | null): boolean {
   if (parent && child) {
     const parentRect = parent.getBoundingClientRect()
@@ -239,11 +254,11 @@ export function getClosestLeftElement(
   return child(closestElement)
 }
 
-function parent(node: HTMLElement | null): HTMLElement | null {
+export function parent(node: HTMLElement | null): HTMLElement | null {
   return node?.parentElement ?? null
 }
 
-function child(node: HTMLElement | null): HTMLElement | null {
+export function child(node: HTMLElement | null): HTMLElement | null {
   return (node?.querySelector("[data-label='cell']") as HTMLElement) ?? null
 }
 export function getClosestRightElement(
@@ -258,4 +273,22 @@ export function getClosestRightElement(
     closestElement = closestElement.nextElementSibling as HTMLElement
   }
   return child(closestElement)
+}
+
+export function isInZone(
+  containerRect: DOMRect | null,
+  draggableX: number,
+  draggableY: number,
+  zoneHeight: number
+) {
+  if (containerRect) {
+    const { left, top, width, height } = containerRect
+    const zoneTop = top + height / 2 - zoneHeight / 2 // Centra la zona verticalmente
+    const zoneBottom = zoneTop + zoneHeight // Altura de la zona
+    const isInZoneHorizontally = draggableX >= left && draggableX <= left + width
+    const isInZoneVertically = draggableY >= zoneTop && draggableY <= zoneBottom
+
+    return isInZoneHorizontally && isInZoneVertically
+  }
+  return false
 }

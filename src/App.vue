@@ -1,11 +1,17 @@
 <template>
-  <!--  <GridTableOne />-->
-  <!-- Solo draggable con sortablejs -->
-  <!--  <GridTableTwo />-->
-  <!-- El mas estable con animacion de backgrund -->
-  <!--  <GridTableThree /> -->
-  <!-- Ejemplo de virtual scroller -->
-  <GridTableFour />
+  <div class="h-svh w-full grid-rows-[min-content_1fr]">
+    <select name="select" v-model="gridSelected" @change="handleSelect">
+      <option value="GridTableOne">Grid Table Sample One</option>
+      <!-- Solo draggable con sortablejs -->
+      <option value="GridTableTwo">Grid Table Sample Two</option>
+      <!-- El mas estable con animacion de backgrund -->
+      <option value="GridTableThree">Grid Table Sample Three</option>
+      <!-- ENSEÑABLE: El Mejor hasta ahora: Ejemplo de virtual scroller -->
+      <option value="GridTableFour">Grid Table Sample Four</option>
+      <option value="GridTableFive">Grid Table Sample Five</option>
+    </select>
+    <component :is="grids[gridSelected]" />
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -13,4 +19,15 @@ import GridTableOne from '@/components/GridTableOne.vue'
 import GridTableTwo from '@/components/GridTableTwo.vue'
 import GridTableThree from '@/components/GridTableThree.vue'
 import GridTableFour from './components/GridTableFour.vue'
+import GridTableFive from '@/components/GridTableFive.vue'
+import { ref } from 'vue'
+
+const gridSelected = ref('GridTableFive')
+const grids = { GridTableOne, GridTableTwo, GridTableThree, GridTableFour, GridTableFive }
+
+function handleSelect(e: Event): void {
+  const target = e.target as HTMLSelectElement
+  gridSelected.value = target.value
+  console.log(gridSelected.value)
+}
 </script>

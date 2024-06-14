@@ -67,7 +67,7 @@ import {
   shadowAllStopsExcept
 } from '@/utils'
 import GridCell from '@/components/GridCell.vue'
-import { StopSide } from '@/index'
+import { ElementSide } from '@/index'
 
 const refInputRows = ref<HTMLInputElement | null>(null)
 const refGrid = ref<HTMLDivElement | null>(null)
@@ -82,7 +82,7 @@ let currentOverContainer: HTMLElement | null = null
 let currentOverStop: HTMLElement | null = null
 let currentSiblingStop: HTMLElement | null = null
 let lastOverStop: HTMLElement | null = null
-let lastStopSide: StopSide | null = null
+let lastStopSide: ElementSide | null = null
 
 function handleSetRows() {
   if (rows.value) {
@@ -92,14 +92,14 @@ function handleSetRows() {
 }
 
 function highlightStopSide(
-  currentSide: StopSide,
+  currentSide: ElementSide,
   currentOverContainer: HTMLElement,
   overRect: DOMRect | null
 ) {
   // Am I over stop right side
   removeAllShadowStops()
-  if (currentSide === StopSide.right) {
-    lastStopSide = StopSide.right
+  if (currentSide === ElementSide.right) {
+    lastStopSide = ElementSide.right
     currentOverStop?.classList?.add('move-to-left')
     const closestContainer = getClosestRightElement(currentOverContainer)
     if (closestContainer?.dataset?.row === currentOverContainer.dataset?.row) {
@@ -108,7 +108,7 @@ function highlightStopSide(
     }
     // Am I over stop left side
   } else {
-    lastStopSide = StopSide.left
+    lastStopSide = ElementSide.left
     currentOverStop?.classList?.add('move-to-right')
     const closestContainer = getClosestLeftElement(currentOverContainer)
     if (closestContainer?.dataset?.row === currentOverContainer?.dataset?.row) {

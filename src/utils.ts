@@ -1,4 +1,4 @@
-import { StopSide } from '@/index'
+import { ElementSide } from '@/index'
 import { ref, type Ref } from 'vue'
 
 export function generateRandomObject(maxKeys: number): Record<number, number[]> {
@@ -143,10 +143,10 @@ export function cleanStopsHighlighted(
   }
 }
 
-export function getSide(x: number, rect: DOMRect | null): StopSide {
+export function getSide(x: number, rect: DOMRect | null): ElementSide {
   const left = rect?.left ?? 0
   const width = rect?.width ?? 0
-  return x > left + width / 2 ? StopSide.right : StopSide.left
+  return x > left + width / 2 ? ElementSide.right : ElementSide.left
 }
 
 /*
