@@ -1,5 +1,6 @@
-import { ElementSide } from '@/index'
 import { type Ref } from 'vue'
+import { ElementSide } from '@/index'
+import * as wasi from 'node:wasi'
 
 export function generateRandomObject(maxKeys: number): Record<number, number[]> {
   const result: Record<number, number[]> = {}
@@ -227,7 +228,9 @@ export function getSide(x: number, rect: DOMRect | null): ElementSide {
 export function shadowAllStopsExcept(excludeIds: (string | undefined)[]) {
   const allStops = document.querySelectorAll("[data-label='stop']")
   allStops.forEach((stop) => {
-    if (!excludeIds.includes(stop?.id)) {
+    if (excludeIds.includes(stop?.id)) {
+      stop.classList.remove('shadow')
+    } else {
       stop.classList.add('shadow')
     }
   })
@@ -237,6 +240,14 @@ export function removeAllShadowStops() {
   const allStops = document.querySelectorAll("[data-label='stop']")
   allStops.forEach((stop) => {
     stop.classList.remove('shadow')
+  })
+}
+
+export function removeAllSelectedStop() {
+  const allStops = document.querySelectorAll('.move-to-left, .move-to-right')
+  allStops.forEach((stop) => {
+    stop.classList.remove('move-to-left')
+    stop.classList.remove('move-to-right')
   })
 }
 
@@ -251,15 +262,18 @@ export function getClosestLeftElement(
   ) {
     closestElement = closestElement?.previousElementSibling as HTMLElement
   }
-  return child(closestElement)
+
+  return child(closestElement)?.dataset?.row === currentOverContainer?.dataset?.row
+    ? child(closestElement)
+    : null
 }
 
 export function parent(node: HTMLElement | null): HTMLElement | null {
   return node?.parentElement ?? null
 }
 
-export function child(node: HTMLElement | null): HTMLElement | null {
-  return (node?.querySelector("[data-label='cell']") as HTMLElement) ?? null
+export function child(node: HTMLElement | null, nodeName: string = 'cell'): HTMLElement | null {
+  return (node?.querySelector(`[data-label='${nodeName}']`) as HTMLElement) ?? null
 }
 export function getClosestRightElement(
   currentOverContainer: HTMLElement | null
@@ -272,7 +286,10 @@ export function getClosestRightElement(
   ) {
     closestElement = closestElement.nextElementSibling as HTMLElement
   }
-  return child(closestElement)
+
+  return child(closestElement)?.dataset?.row === currentOverContainer?.dataset?.row
+    ? child(closestElement)
+    : null
 }
 
 export function isInZone(
@@ -291,4 +308,13 @@ export function isInZone(
     return isInZoneHorizontally && isInZoneVertically
   }
   return false
+}
+
+export function isMouseInsideContainer(containerRect: DOMRect, mouseX: number, mouseY: number) {
+  return (
+    mouseX >= containerRect.left &&
+    mouseX <= containerRect.right &&
+    mouseY >= containerRect.top &&
+    mouseY <= containerRect.bottom
+  )
 }
