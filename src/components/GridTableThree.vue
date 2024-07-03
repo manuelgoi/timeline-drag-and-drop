@@ -1,7 +1,7 @@
 <template>
   <div class="h-svh w-full p-4 flex flex-col items-center justify-center h-full">
     <fieldset class="border rounded-md border-gray-200 p-4 mb-4 flex flex-col">
-      <legend class="font-bold">Grid Stats</legend>
+      <legend class="font-bold">Grid Three Stats</legend>
       <label>Rows: {{ refInputRows?.value }} </label>
       <label>Cells: {{ totalCells }} </label>
       <label>Stops: {{ totalStops }} </label>

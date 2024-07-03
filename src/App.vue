@@ -9,6 +9,7 @@
       <!-- ENSEÑABLE: El Mejor hasta ahora: Ejemplo de virtual scroller -->
       <option value="GridTableFour">Grid Table Sample Four</option>
       <option value="GridTableFive">Grid Table Sample Five</option>
+      <option value="GridTableSix">Grid Table Sample Six</option>
     </select>
     <component :is="grids[gridSelected]" />
   </div>
@@ -20,10 +21,18 @@ import GridTableTwo from '@/components/GridTableTwo.vue'
 import GridTableThree from '@/components/GridTableThree.vue'
 import GridTableFour from './components/GridTableFour.vue'
 import GridTableFive from '@/components/GridTableFive.vue'
+import GridTableSix from './components/GridTableSix.vue'
 import { ref } from 'vue'
 
-const gridSelected = ref('GridTableFive')
-const grids = { GridTableOne, GridTableTwo, GridTableThree, GridTableFour, GridTableFive }
+const gridSelected = ref('GridTableSix')
+const grids = {
+  GridTableOne,
+  GridTableTwo,
+  GridTableThree,
+  GridTableFour,
+  GridTableFive,
+  GridTableSix
+}
 
 function handleSelect(e: Event): void {
   const target = e.target as HTMLSelectElement

@@ -1,7 +1,7 @@
 <template>
   <div class="h-svh w-full p-4 flex flex-col items-center justify-center">
     <fieldset class="border rounded-md border-gray-200 p-4 mb-4 flex flex-col">
-      <legend class="font-bold">Grid Four Stats</legend>
+      <legend class="font-bold">Grid Six Stats</legend>
       <label>Rows: {{ rows }} </label>
       <label>Cells: {{ data?.length }} </label>
       <label>Stops: {{ stopLength }} </label>
@@ -31,15 +31,16 @@
         <div
           v-if="item?.col === 0"
           data-label="horizontal-guide"
-          class="absolute z-10 bg-gray-200 h-1 top-1/2"
+          class="absolute z-10 bg-gray-200 h-1 top-1/2 pointer-events-none"
           :style="{ width: scrollWidthTable + 'px' }"
         />
         <div
           data-label="cell"
-          :data-index="item.id"
+          :id="item?.row + '-' + item?.col"
           :data-row="item?.row"
           :data-column="item?.col"
-          :data-has-stops="item?.value !== null"
+          :data-has-stop="item?.value !== null"
+          :data-has-stops="isArray(item?.value)"
           :class="[
             'rounded-md border border-dashed border-dashed-orange-200 relative size-full box-border flex items-center',
             { 'ignore-elements': item?.value === null }
@@ -50,14 +51,28 @@
             {{ item?.row }}/{{ item?.col }}
           </span>
           <div
-            v-if="item?.value !== null"
+            v-if="item?.value !== null && !isArray(item?.value)"
             :id="item?.id"
             data-label="stop"
-            class="absolute z-20 bg-amber-50 border-gray-200 hover:cursor-move h-[30px] w-[80px] border rounded-md font-bold flex justify-center items-center"
+            class="absolute z-20 bg-amber-50 border-gray-200 hover:cursor-move h-[30px] border rounded-md font-bold flex justify-center items-center"
+            :style="{ width: item?.width + 'px' }"
           >
             {{ item?.value }}
             <MirrorCell class="hidden" />
           </div>
+          <template v-else-if="item?.value !== null && isArray(item?.value)">
+            <div
+              v-for="subitem in item?.value"
+              :key="subitem?.id"
+              :id="subitem?.id"
+              data-label="stop"
+              class="absolute z-20 bg-amber-50 border-gray-200 hover:cursor-move h-[30px] border rounded-md font-bold flex justify-center items-center"
+              :style="{ width: subitem?.width + 'px', left: subitem?.left + 'px' }"
+            >
+              {{ subitem?.value }}
+              <MirrorCell class="hidden" />
+            </div>
+          </template>
         </div>
       </RecycleScroller>
       <div ref="refLink" class="absolute hidden h-1" />
@@ -66,7 +81,15 @@
 </template>
 
 <script setup lang="ts">
+/*
+ * TODO
+ *  - Varios stops en la misma celda
+ *  - Varios stops solapados por tiempo
+ *  - No se debe iluminar el lugar de partida del arrastre
+ */
+import isArray from 'lodash-es/isArray'
 import {
+  child,
   cleanStopsHighlighted,
   generateRandomCollection,
   getClosestLeftElement,
@@ -77,30 +100,42 @@ import {
   highlighStopInMyRightSide,
   highlighToTheEndOfMyLeftSide,
   highlighToTheEndOfMyRightSide,
+  highlisghtStops,
   isChildVisible,
+  isMouseInsideContainer,
+  removeAllSelectedStop,
   removeAllShadowStops,
   shadowAllStopsExcept
-} from '@/utilsFour'
+} from '@/utilsSix'
 import { computed, nextTick, onUnmounted, ref } from 'vue'
 import { RecycleScroller } from 'vue-virtual-scroller'
 import 'vue-virtual-scroller/dist/vue-virtual-scroller.css'
 import {
   Draggable,
   type DragMoveEvent,
+  type DragOutContainerEvent,
+  type DragOverContainerEvent,
   type DragOverEvent,
-  type MirrorCreatedEvent,
-  type SensorEvent
+  type MirrorCreatedEvent
 } from '@shopify/draggable'
 import MirrorCell from '@/components/MirrorCell.vue'
 import { ElementSide } from '@/index'
 
+enum DragOverType {
+  cell,
+  stop
+}
+
 const rows = ref(93)
 const cols = ref(23)
+const maxStopsByCol = ref(4)
 const cellHeight = ref(70)
 const cellWidth = ref(150)
 const MIRROR_OFFSET_X: Readonly<number> = 13
 
-const data = computed(() => generateRandomCollection(rows.value, cols.value) ?? [])
+const data = computed(
+  () => generateRandomCollection(rows.value, cols.value, maxStopsByCol.value, cellWidth.value) ?? []
+)
 const stopLength = computed(
   () => data.value?.reduce((acc, next) => (next.value > 0 ? (acc = acc + 1) : acc), 0) ?? 0
 )
@@ -116,6 +151,8 @@ let currentSiblingStop: HTMLElement | null = null
 let lastOverStop: HTMLElement | null = null
 let lastStopSide: ElementSide | null = null
 let draggableCells: HTMLElement[] | null = null
+let currentContainerOverType: DragOverType | null = null
+let currentStopOverType: DragOverType | null = null
 
 onUnmounted(() => {
   if (draggableInstance) {
@@ -145,6 +182,8 @@ function initDraggable() {
     draggableInstance.on('drag:over', handleDragOver)
     draggableInstance.on('drag:out', handleDragOut)
     draggableInstance.on('drag:stop', handleDragStop)
+    draggableInstance.on('drag:over:container', handleDragOverContainer)
+    draggableInstance.on('drag:out:container', handleDragOutContainer)
   } else {
     console.error('No table found. Draggable is disabled !')
   }
@@ -154,7 +193,6 @@ function createDraggable(root: HTMLElement[]) {
   const verticalScrollElement = document.querySelector('.recycle-scroller-parent') as HTMLElement
   return new Draggable(root, {
     draggable: '[data-label="stop"]',
-    delay: 0,
     scrollable: {
       speed: 3,
       scrollableElements: [verticalScrollElement]
@@ -194,21 +232,19 @@ function handleDragMirrorCreated(event: MirrorCreatedEvent) {
 
 function hanldeDragStart() {
   document.body.classList.add('dragging')
+  shadowAllStopsExcept([])
 }
 
 function handleDragMove(ev: DragMoveEvent) {
-  if (currentOverContainer) {
-    const overRect = currentOverStop?.getBoundingClientRect() ?? null
-    const currentSide = getSide(ev.sensorEvent.clientX, overRect)
-    if (currentSide !== lastStopSide) {
-      cleanStopsHighlighted(currentOverStop, currentSiblingStop, refLink.value)
-      highlightStopSide(currentSide, currentOverContainer, overRect)
-    }
-    lastStopSide = currentSide
+  if (currentStopOverType === DragOverType.stop) {
+    processOverStopMovement(ev)
+  } else if (currentContainerOverType === DragOverType.cell) {
+    processOverCellMovement(ev)
   }
 }
 
 function handleDragOver(ev: DragOverEvent) {
+  currentStopOverType = DragOverType.stop
   currentOverStop = ev.over
   currentOverContainer = ev.overContainer
   lastOverStop = ev.over
@@ -221,80 +257,186 @@ function handleDragOver(ev: DragOverEvent) {
   }
 }
 
-function handleDragOut(/*ev: DragOutEvent*/) {
+function handleDragOverContainer(ev: DragOverContainerEvent) {
+  currentContainerOverType = DragOverType.cell
+  currentOverContainer = ev.overContainer
+}
+
+function handleDragOut() {
+  currentStopOverType = null
   if (currentOverStop) {
-    currentOverStop?.classList?.remove('move-to-left', 'move-to-right')
     lastOverStop = currentOverStop
-    currentOverContainer = null
     currentOverStop = null
   }
   if (currentSiblingStop) {
-    currentSiblingStop.classList.remove('move-to-left', 'move-to-right')
     currentSiblingStop = null
   }
   hideLinkBetweenStops(refLink)
   lastStopSide = null
-  removeAllShadowStops()
 }
 
-function handleDragStop(/*ev: DragStopEvent*/) {
+function handleDragOutContainer(ev: DragOutContainerEvent) {
+  currentContainerOverType = null
+  // Comprobamos si continua en el mismo contenedor, porque la linea que une las paradas
+  // genera un drag:out:container
+  const continueInsideTheSameContainer = isMouseInsideContainer(
+    ev.overContainer.getBoundingClientRect(),
+    ev.sensorEvent?.clientX,
+    ev.sensorEvent?.clientY
+  )
+  if (!continueInsideTheSameContainer) {
+    resetTable()
+  }
+}
+
+function handleDragStop() {
+  resetTable()
+  removeAllShadowStops()
+  removeAllSelectedStop()
+}
+
+function resetTable() {
   if (currentOverStop) {
-    currentOverStop.classList.remove('move-to-left', 'move-to-right')
     currentOverContainer = null
     currentOverStop = null
   }
   if (currentSiblingStop) {
-    currentSiblingStop.classList.remove('move-to-left', 'move-to-right')
     currentSiblingStop = null
   }
   hideLinkBetweenStops(refLink)
   lastStopSide = null
-  removeAllShadowStops()
 }
 
-/*
- * TO-DO
- * Si se pasa arrastrando en un movimiento diagonal sobre la esquina inferior derecha
- * de una parada esta deja el linkRef cambiado por error
- */
+function processOverStopMovement(ev: DragMoveEvent) {
+  if (currentOverContainer) {
+    const overRect = currentOverStop?.getBoundingClientRect() ?? null
+    const currentSide = getSide(ev.sensorEvent.clientX, overRect)
+    if (currentSide !== lastStopSide) {
+      cleanStopsHighlighted(currentOverStop, currentSiblingStop, refLink.value)
+      highlightStopSide(currentSide, currentOverContainer, overRect)
+    }
+    lastStopSide = currentSide
+  }
+}
+
+function processOverCellMovement(ev: DragMoveEvent) {
+  if (currentOverContainer) {
+    let side: ElementSide | null = null
+    if (currentOverContainer?.dataset?.hasStop === 'true') {
+      const overContainerRect = currentOverContainer?.getBoundingClientRect()
+      side = getSide(ev.sensorEvent.clientX, overContainerRect)
+    }
+    let rightSiblingContainer: HTMLElement | null = null
+    let leftSiblingContainer: HTMLElement | null = null
+    if (side === ElementSide.left) {
+      // Estoy en una celda con stops en su lado izquierdo (left === current)
+      rightSiblingContainer = currentOverContainer
+      leftSiblingContainer = getClosestLeftElement(currentOverContainer)
+    } else if (side === ElementSide.right) {
+      // Estoy en una celda con stops en su lado derecho (right === current)
+      leftSiblingContainer = currentOverContainer
+      rightSiblingContainer = getClosestRightElement(currentOverContainer)
+    } else {
+      // Estoy en una celda sin stops
+      rightSiblingContainer = getClosestRightElement(currentOverContainer)
+      leftSiblingContainer = getClosestLeftElement(currentOverContainer)
+    }
+    // Esta entre dos Stops
+    if (leftSiblingContainer && rightSiblingContainer) {
+      const { leftStop, rightStop } = highlisghtStops(
+        leftSiblingContainer,
+        rightSiblingContainer,
+        refLink,
+        side
+      )
+      shadowAllStopsExcept([leftStop?.id, rightStop?.id])
+      currentOverStop = leftStop
+      currentSiblingStop = rightStop
+    } else if (!leftSiblingContainer && rightSiblingContainer) {
+      // Esta al principio del timeline y no tiene stop a su izquierda
+      const rightStop = child(rightSiblingContainer, 'stop')
+      const overRect = rightStop?.getBoundingClientRect() ?? ({} as DOMRect)
+      rightStop?.classList?.add('lighting')
+      highlighToTheEndOfMyLeftSide(tableRef.value, refLink, overRect, 8)
+      shadowAllStopsExcept([rightStop?.id])
+    } else if (leftSiblingContainer && !rightSiblingContainer) {
+      // Esta el final del timeline y no tiene stop a su derecha
+      const leftCellStops = leftSiblingContainer?.querySelectorAll('[data-label="stop"]') ?? null
+      const leftStop = leftCellStops?.[leftCellStops?.length - 1]
+      const overRect = leftStop?.getBoundingClientRect() ?? ({} as DOMRect)
+      leftStop?.classList?.add('lighting')
+      highlighToTheEndOfMyRightSide(tableRef.value, refLink, overRect, 8)
+      shadowAllStopsExcept([leftStop?.id])
+    }
+  }
+}
+
 function highlightStopSide(
   currentSide: ElementSide,
   currentOverContainer: HTMLElement,
   overRect: DOMRect | null
 ) {
+  hideLinkBetweenStops(refLink)
   // Am I over stop right side
-  removeAllShadowStops()
   if (currentSide === ElementSide.right) {
     lastStopSide = ElementSide.right
-    currentOverStop?.classList?.add('move-to-left')
-    const closestContainer = getClosestRightElement(currentOverContainer)
-    const isClosestContainerVisible = isChildVisible(tableRef.value, closestContainer)
-    if (
-      isClosestContainerVisible &&
-      closestContainer?.dataset?.row === currentOverContainer.dataset?.row
-    ) {
-      currentSiblingStop = highlighStopInMyRightSide(closestContainer, refLink, overRect)
-      shadowAllStopsExcept([currentOverStop?.id, currentSiblingStop?.id])
+    const rightSiblingStop = currentOverStop?.nextElementSibling as HTMLElement
+    if (rightSiblingStop && rightSiblingStop?.dataset?.label === 'stop') {
+      rightSiblingStop?.classList?.add('lighting')
+      currentOverStop?.classList?.add('lighting')
+      shadowAllStopsExcept([currentOverStop?.id, rightSiblingStop?.id])
     } else {
-      console.log('no current sibling')
-      highlighToTheEndOfMyRightSide(tableRef.value, refLink, overRect, 8)
-      shadowAllStopsExcept([currentOverStop?.id])
+      const rightSiblingContainer = getClosestRightElement(currentOverContainer)
+      const isRightSiblingContainerVisible = isChildVisible(tableRef.value, rightSiblingContainer)
+      if (
+        isRightSiblingContainerVisible &&
+        rightSiblingContainer?.dataset?.row === currentOverContainer.dataset?.row
+      ) {
+        const { leftStop, rightStop } = highlisghtStops(
+          currentOverContainer,
+          rightSiblingContainer,
+          refLink,
+          ElementSide.right
+        )
+        shadowAllStopsExcept([leftStop?.id, rightStop?.id])
+        currentOverStop = leftStop
+        currentSiblingStop = rightStop
+      } else {
+        currentOverStop?.classList?.add('lighting')
+        highlighToTheEndOfMyRightSide(tableRef.value, refLink, overRect, 8)
+        shadowAllStopsExcept([currentOverStop?.id])
+      }
     }
     // Am I over stop left side
   } else {
     lastStopSide = ElementSide.left
-    currentOverStop?.classList?.add('move-to-right')
-    const closestContainer = getClosestLeftElement(currentOverContainer)
-    const isClosestContainerVisible = isChildVisible(tableRef.value, closestContainer)
-    if (
-      isClosestContainerVisible &&
-      closestContainer?.dataset?.row === currentOverContainer?.dataset?.row
-    ) {
-      currentSiblingStop = highlighStopInMyLeftSide(closestContainer, refLink, overRect)
-      shadowAllStopsExcept([currentOverStop?.id, currentSiblingStop?.id])
+    const leftSiblingStop = currentOverStop?.previousElementSibling as HTMLElement
+    if (leftSiblingStop && leftSiblingStop?.dataset?.label === 'stop') {
+      leftSiblingStop?.classList?.add('lighting')
+      currentOverStop?.classList?.add('lighting')
+      shadowAllStopsExcept([leftSiblingStop?.id, currentOverStop?.id])
+      console.log(leftSiblingStop?.innerText, currentOverStop?.innerText)
     } else {
-      highlighToTheEndOfMyLeftSide(tableRef.value, refLink, overRect, 8)
-      shadowAllStopsExcept([currentOverStop?.id])
+      const leftSiblingContainer = getClosestLeftElement(currentOverContainer)
+      const isLeftSiblingContainerVisible = isChildVisible(tableRef.value, leftSiblingContainer)
+      if (
+        isLeftSiblingContainerVisible &&
+        leftSiblingContainer?.dataset?.row === currentOverContainer?.dataset?.row
+      ) {
+        const { leftStop, rightStop } = highlisghtStops(
+          leftSiblingContainer,
+          currentOverContainer,
+          refLink,
+          ElementSide.left
+        )
+        shadowAllStopsExcept([leftStop?.id, rightStop?.id])
+        currentOverStop = rightStop
+        currentSiblingStop = leftStop
+      } else {
+        currentOverStop?.classList?.add('lighting')
+        highlighToTheEndOfMyLeftSide(tableRef.value, refLink, overRect, 8)
+        shadowAllStopsExcept([currentOverStop?.id])
+      }
     }
   }
 }
@@ -317,7 +459,6 @@ function handleVirtualScrollScrollStart() {
     guides.forEach((el) => el.classList.add('hide-guide'))
   }
   hideLinkBetweenStops(refLink)
-  removeAllShadowStops()
 }
 
 function handleVirtualScrollScrollEnd() {
@@ -342,19 +483,14 @@ function handleVirtualScrollScrollEnd() {
 .dragging {
   cursor: grabbing !important;
 }
-.move-to-right {
+
+.lighting {
   background: lightblue;
   transition:
     background 0.5s ease,
     transform 0.8s ease;
 }
 
-.move-to-left {
-  background: lightblue;
-  transition:
-    background 0.5s ease,
-    transform 0.8s ease;
-}
 .shadow {
   background-color: gray;
   transition: background 0.8s ease;
