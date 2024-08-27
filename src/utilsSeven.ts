@@ -51,7 +51,8 @@ export function generateRandomCollection(
   maxKeys: number,
   cols: number,
   maxStopsByCol: number,
-  cellWidth: number
+  cellWidth: number,
+  padding: number = 0
 ): Row[] {
   const result = []
 
@@ -64,7 +65,7 @@ export function generateRandomCollection(
         id: crypto.randomUUID(),
         row: i,
         col: x,
-        value: uniqueValues.includes(x) ? x : null,
+        value: x >= padding ? (uniqueValues.includes(x) ? x : null) : null,
         width,
         left: 0
       }
@@ -86,7 +87,7 @@ export function generateRandomCollection(
     result.push(row)
   }
 
-  return result.flat()
+  return result
 }
 
 function generateUniqueValues(length: number, min: number, max: number): number[] {

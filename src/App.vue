@@ -10,7 +10,7 @@
       <option value="GridTableFour">Grid Table Sample Four</option>
       <option value="GridTableFive">Grid Table Sample Five</option>
       <option value="GridTableSix">Grid Table Sample Six</option>
-      <option value="GridTableSeven">Grid Table Sample Seven</option>
+      <option value="GridTableSeven">Grid Table Sample Seven (Experimental)</option>
     </select>
     <component :is="grids[gridSelected]" />
   </div>
