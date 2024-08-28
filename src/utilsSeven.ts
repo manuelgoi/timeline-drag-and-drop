@@ -1,5 +1,6 @@
 import { type Ref } from 'vue'
 import { ElementSide } from '@/index'
+import type { GridItem, GridItems } from '@/components/VirtualizedGrid'
 
 export function generateRandomObject(maxKeys: number): Record<number, number[]> {
   const result: Record<number, number[]> = {}
@@ -39,21 +40,14 @@ export interface ComplexRow {
   left?: number
   value: number | null
 }
-export interface Row {
-  id: string
-  value: number | null | ComplexRow[]
-  row: number
-  col: number
-  width: number
-  left?: number
-}
+
 export function generateRandomCollection(
   maxKeys: number,
   cols: number,
   maxStopsByCol: number,
   cellWidth: number,
   padding: number = 0
-): Row[] {
+): GridItem[][] {
   const result = []
 
   for (let i = 0; i <= maxKeys; i++) {

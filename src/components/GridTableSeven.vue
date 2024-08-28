@@ -20,56 +20,20 @@
       data-label="table"
       class="border rounded-md border-gray-200 p-2 h-[500px] w-full"
     >
-      <VirtualizedGrid :items="data" />
-      <!--
-        <div
-          v-if="item?.col === 0"
-          data-label="horizontal-guide"
-          class="absolute z-10 bg-gray-200 h-1 top-1/2 pointer-events-none"
-          :style="{ width: scrollWidthTable + 'px' }"
-        />
-        <div
-          data-label="cell"
-          :data-active="active"
-          :id="item?.row + '-' + item?.col"
-          :data-row="item?.row"
-          :data-column="item?.col"
-          :data-has-stop="item?.value !== null"
-          :data-has-stops="isArray(item?.value)"
-          :class="[
-            'rounded-md border border-dashed border-dashed-orange-200 relative size-full box-border flex items-center',
-            { 'ignore-elements': item?.value === null }
-          ]"
-          :style="{ height: cellHeight }"
-        >
-          <span class="absolute top-1 left-1 text-[0.5rem] rounded-full bg-gray-100">
-            {{ item?.row }}/{{ item?.col }}
-          </span>
-          <div
-            v-if="item?.value !== null && !isArray(item?.value)"
-            :id="item?.id"
-            data-label="stop"
-            class="absolute z-20 bg-amber-50 border-gray-200 hover:cursor-move h-[30px] border rounded-md font-bold flex justify-center items-center"
-            :style="{ width: item?.width + 'px' }"
-          >
-            {{ item?.value }}
-            <MirrorCell class="hidden" />
-          </div>
-          <template v-else-if="item?.value !== null && isArray(item?.value)">
-            <div
-              v-for="subitem in item?.value"
-              :key="subitem?.id"
-              :id="subitem?.id"
-              data-label="stop"
-              class="absolute z-20 bg-amber-50 border-gray-200 hover:cursor-move h-[30px] border rounded-md font-bold flex justify-center items-center"
-              :style="{ width: subitem?.width + 'px', left: subitem?.left + 'px' }"
-            >
-              {{ subitem?.value }}
-              <MirrorCell class="hidden" />
-            </div>
-          </template>
-        </div>
-        -->
+      <VirtualizedGrid :items="data">
+        <template #leftPanel="{ row, rowType }">
+          <header v-if="rowType === RowType.header" class="bg-white">Cabecera del Panel</header>
+          <header v-else class="bg-white h-full">{{ row?.[0]?.row }}</header>
+        </template>
+        <template #default="{ row, rowType, hour, colIndex }">
+          <header v-if="rowType === RowType.header">
+            {{ hour }}
+          </header>
+          <main v-else class="bg-green-400 text-white px-2 py-1 rounded">
+            {{ row?.[colIndex]?.row }}/{{ hour }}
+          </main>
+        </template>
+      </VirtualizedGrid>
       <div ref="refLink" class="absolute hidden h-1" />
     </div>
   </div>
@@ -102,7 +66,8 @@ import {
   shadowAllStopsExcept
 } from '@/utilsSeven'
 import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
-import VirtualizedGrid from '@/components/VirtualizedGrid.vue'
+import VirtualizedGrid, { type GridItem } from '@/components/VirtualizedGrid'
+import { RowType } from '@/components/VirtualizedGrid'
 import 'vue-virtual-scroller/dist/vue-virtual-scroller.css'
 import {
   Draggable,
@@ -127,7 +92,7 @@ const cellHeight = ref(70)
 const cellWidth = ref(150)
 const MIRROR_OFFSET_X: Readonly<number> = 13
 
-const data = computed(
+const data = computed<GridItem[][]>(
   () => generateRandomCollection(rows.value, cols.value, maxStopsByCol.value, cellWidth.value) ?? []
 )
 console.log(data)
