@@ -1,15 +1,18 @@
 <template>
-  <div ref="gridContainer" class="overflow-auto h-full w-full" @scroll="handleScroll">
-    <div class="relative" :style="{ height: totalHeight + 'px', width: totalWidth + 'px' }">
+  <div ref="gridContainer" class="overflow-auto h-full w-full" @scroll.passive="handleScroll">
+    <div
+      class="relative recycle-scroller-vertical"
+      :style="{ height: totalHeight + 'px', width: totalWidth + 'px' }"
+    >
       <!-- Render the visible rows -->
       <div
         v-for="(row, rowIndex) in visibleRows"
         :key="rowIndex"
         :style="row === null ? rowHeaderStyles : getRowStyles(rowIndex)"
-        class="w-full grid top-0"
+        class="w-full grid"
       >
         <!-- First column (panel information) -->
-        <div class="left-0 sticky">
+        <div :class="['left-0 sticky', row === null ? 'z-50 top-0' : 'z-40']">
           <slot
             name="leftPanel"
             :row="row"
@@ -19,7 +22,11 @@
         </div>
 
         <!-- Render the visible columns (hours) -->
-        <div v-for="(hour, colIndex) in hours" :key="hour">
+        <div
+          v-for="(hour, colIndex) in hours"
+          :key="hour"
+          :class="[{ 'sticky top-0 z-30': row === null }]"
+        >
           <slot
             name="default"
             :row="row"
@@ -35,12 +42,18 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, type StyleValue } from 'vue'
+import { ref, computed, onMounted, type StyleValue, watch, nextTick } from 'vue'
 import type { GridItem } from './index'
 import { RowType } from './index'
+import { useElementVisibility } from '@vueuse/core'
 
 const props = defineProps<{
   items: GridItem[][]
+}>()
+
+const emit = defineEmits<{
+  visible: []
+  scrollEnd: []
 }>()
 
 const hours = ref([
@@ -73,6 +86,7 @@ const columnWidth: Readonly<number> = 130 // Width of each hour column in pixels
 const startRow = ref(0)
 const visibleRowCount = ref(5) // Number of visible rows
 const gridContainer = ref<HTMLDivElement | null>(null)
+const targetIsVisible = useElementVisibility(gridContainer)
 
 // Compute total dimensions of the grid
 const totalHeight = computed(() => props.items.length * rowHeight)
@@ -84,13 +98,18 @@ const visibleRows = computed(() => [
   ...props.items.slice(startRow.value, startRow.value + visibleRowCount.value)
 ])
 
+watch(targetIsVisible, async () => {
+  await nextTick()
+  emit('visible')
+})
+
 const rowHeaderStyles = computed<StyleValue>(() => ({
   gridTemplateColumns: `${firstColumnWidth}px repeat(${hours.value.length}, ${columnWidth}px)`,
-  top: '0',
   height: firstColumnHeight + 'px',
-  position: 'sticky',
   background: 'white',
-  zIndex: '10'
+  zIndex: 40,
+  position: 'sticky',
+  top: 0
 }))
 
 onMounted(() => {
@@ -111,6 +130,15 @@ function handleScroll(event: Event) {
 
   // Adjust the number of visible rows and columns based on the container size
   visibleRowCount.value = Math.ceil(clientHeight / rowHeight)
+  checkIfScrolledToEnd(event)
+}
+
+function checkIfScrolledToEnd(event: Event) {
+  const target = event.target as HTMLElement
+  const { scrollTop, scrollHeight, clientHeight } = target
+  if (scrollTop + clientHeight >= scrollHeight) {
+    emit('scrollEnd')
+  }
 }
 
 function getRowStyles(rowIndex: number): StyleValue {
@@ -119,8 +147,7 @@ function getRowStyles(rowIndex: number): StyleValue {
     top: (startRow.value + rowIndex) * rowHeight - firstColumnHeight + 'px',
     height: rowHeight + 'px',
     position: 'absolute',
-    background: 'transparent',
-    zIndex: 'auto'
+    background: 'transparent'
   }
 }
 </script>

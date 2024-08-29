@@ -20,18 +20,69 @@
       data-label="table"
       class="border rounded-md border-gray-200 p-2 h-[500px] w-full"
     >
-      <VirtualizedGrid :items="data">
+      <VirtualizedGrid
+        :items="data"
+        @visible="handleVirtualScrollIsVisible"
+        @scrollend="handleVirtualScrollScrollEnd"
+        @scroll.passive="handleVirtualScrollScrollStart"
+        class="recycle-scroller-parent"
+      >
         <template #leftPanel="{ row, rowType }">
           <header v-if="rowType === RowType.header" class="bg-white">Cabecera del Panel</header>
           <header v-else class="bg-white h-full">{{ row?.[0]?.row }}</header>
         </template>
         <template #default="{ row, rowType, hour, colIndex }">
-          <header v-if="rowType === RowType.header">
+          <header v-if="rowType === RowType.header" class="bg-white z-30">
             {{ hour }}
           </header>
-          <main v-else class="bg-green-400 text-white px-2 py-1 rounded">
-            {{ row?.[colIndex]?.row }}/{{ hour }}
-          </main>
+          <div
+            v-if="row?.[colIndex]?.col === 0 && rowType === RowType.content"
+            data-label="horizontal-guide"
+            class="absolute z-10 bg-gray-200 h-1 top-1/2 pointer-events-none"
+            :style="{ width: scrollWidthTable + 'px' }"
+          />
+          <div
+            v-if="rowType === RowType.content"
+            data-label="cell"
+            :id="row?.[colIndex]?.row + '-' + row?.[colIndex]?.col"
+            :data-row="row?.[colIndex]?.row"
+            :data-column="row?.[colIndex]?.col"
+            :data-has-stop="row?.[colIndex]?.value !== null"
+            :data-has-stops="isArray(row?.[colIndex]?.value)"
+            :class="[
+              'rounded-md border border-dashed border-dashed-orange-200 relative size-full box-border flex items-center',
+              { 'ignore-elements': row?.[colIndex]?.value === null }
+            ]"
+          >
+            <span class="absolute top-1 left-1 text-[0.5rem] rounded-full bg-gray-100">
+              {{ row?.[colIndex]?.row }}/{{ row?.[colIndex]?.col }}
+            </span>
+            <div
+              v-if="row?.[colIndex]?.value !== null && !isArray(row?.[colIndex]?.value)"
+              :id="row?.[colIndex]?.id"
+              data-label="stop"
+              class="absolute z-20 bg-amber-50 border-gray-200 hover:cursor-move h-[30px] border rounded-md font-bold flex justify-center items-center"
+              :style="{ width: row?.[colIndex]?.width + 'px' }"
+            >
+              {{ row?.[colIndex]?.value }}
+              <MirrorCell class="hidden" />
+            </div>
+            <template
+              v-else-if="row?.[colIndex]?.value !== null && isArray(row?.[colIndex]?.value)"
+            >
+              <div
+                v-for="subitem in row?.[colIndex]?.value"
+                :key="subitem?.id"
+                :id="subitem?.id"
+                data-label="stop"
+                class="absolute z-20 bg-amber-50 border-gray-200 hover:cursor-move h-[30px] border rounded-md font-bold flex justify-center items-center"
+                :style="{ width: subitem?.width + 'px', left: subitem?.left + 'px' }"
+              >
+                {{ subitem?.value }}
+                <MirrorCell class="hidden" />
+              </div>
+            </template>
+          </div>
         </template>
       </VirtualizedGrid>
       <div ref="refLink" class="absolute hidden h-1" />
@@ -66,7 +117,7 @@ import {
   shadowAllStopsExcept
 } from '@/utilsSeven'
 import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
-import VirtualizedGrid, { type GridItem } from '@/components/VirtualizedGrid'
+import VirtualizedGrid, { type ComplexValue, type GridItem } from '@/components/VirtualizedGrid'
 import { RowType } from '@/components/VirtualizedGrid'
 import 'vue-virtual-scroller/dist/vue-virtual-scroller.css'
 import {
@@ -89,13 +140,12 @@ const rows = ref(69)
 const cols = ref(25)
 const maxStopsByCol = ref(4)
 const cellHeight = ref(70)
-const cellWidth = ref(150)
+const cellWidth = ref(130)
 const MIRROR_OFFSET_X: Readonly<number> = 13
 
 const data = computed<GridItem[][]>(
   () => generateRandomCollection(rows.value, cols.value, maxStopsByCol.value, cellWidth.value) ?? []
 )
-console.log(data)
 const stopLength = computed(
   () => data.value?.reduce((acc, next) => (next.value > 0 ? (acc = acc + 1) : acc), 0) ?? 0
 )
@@ -121,19 +171,6 @@ onUnmounted(() => {
     draggableInstance.destroy()
   }
 })
-
-onMounted(async () => {
-  // await createRecycleScrollerTeleportNode()
-})
-
-async function createRecycleScrollerTeleportNode() {
-  const recycle = document.querySelector('.vue-recycle-scroller')
-  const node = document.createElement('div')
-  node.className = 'vue-recycle-scroller__external'
-  recycle?.append(node)
-  await nextTick()
-  teleportTo.value = '.vue-recycle-scroller__external'
-}
 
 async function handleSetRows() {
   if (rows.value) {
@@ -417,7 +454,6 @@ function highlightStopSide(
 }
 
 function handleVirtualScrollIsVisible() {
-  // updateLeftPanel().then((rows) => (leftPanel.value = rows))
   if (draggableInstance) {
     draggableInstance.destroy()
   }
@@ -438,7 +474,6 @@ function handleVirtualScrollScrollStart() {
 }
 
 function handleVirtualScrollScrollEnd() {
-  // updateLeftPanel().then((rows) => (leftPanel.value = rows))
   if (draggableInstance && draggableCells) {
     draggableInstance.removeContainer(...draggableCells)
     const cells = tableRef.value?.querySelectorAll('[data-label="cell"]') ?? null
@@ -453,20 +488,6 @@ function handleVirtualScrollScrollEnd() {
       guides.forEach((el) => el.classList.remove('hide-guide'))
     }, 200)
   }
-}
-
-async function updateLeftPanel(): Promise<number[]> {
-  return new Promise((resolve, reject) => {
-    try {
-      const nodes = document.querySelectorAll('[data-label=cell][data-active=true]')
-      const rows = new Set<number>()
-      nodes.forEach((node) => rows.add(parseInt((node as HTMLElement)?.dataset?.row as string)))
-      const orderRows = sortBy(Array.from(rows)) as number[]
-      resolve(orderRows)
-    } catch {
-      reject([])
-    }
-  })
 }
 </script>
 
