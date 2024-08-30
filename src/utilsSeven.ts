@@ -49,7 +49,7 @@ export function generateRandomCollection(
   padding: number = 0
 ): GridItem[][] {
   const result = []
-
+  console.time('generateRandomCollection')
   for (let i = 0; i <= maxKeys; i++) {
     const arrayLength = Math.floor(Math.random() * cols) + 1
     const uniqueValues = generateUniqueValues(arrayLength, 0, cols)
@@ -80,7 +80,7 @@ export function generateRandomCollection(
     })
     result.push(row)
   }
-
+  console.timeEnd('generateRandomCollection')
   return result
 }
 

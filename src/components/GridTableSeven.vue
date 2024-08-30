@@ -8,7 +8,7 @@
     </fieldset>
     <form @submit.prevent="handleSetRows" class="border rounded-md border-gray-200 p-4 mb-4">
       <fieldset class="flex gap-x-2 justify-start items-center">
-        <label>Rows</label>
+        <label title="Y creo que se podria optimizar hasta millones">Rows (220K Max) ℹ</label>
         <input ref="refInputRows" type="number" :value="rows" class="rounded-md border-gray-200" />
         <button @click="handleSetRows" class="rounded-md border-blue-500 bg-blue-200 p-2">
           Set
@@ -116,7 +116,7 @@ import {
   removeAllShadowStops,
   shadowAllStopsExcept
 } from '@/utilsSeven'
-import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import VirtualizedGrid, { type ComplexValue, type GridItem } from '@/components/VirtualizedGrid'
 import { RowType } from '@/components/VirtualizedGrid'
 import 'vue-virtual-scroller/dist/vue-virtual-scroller.css'
@@ -147,7 +147,20 @@ const data = computed<GridItem[][]>(
   () => generateRandomCollection(rows.value, cols.value, maxStopsByCol.value, cellWidth.value) ?? []
 )
 const stopLength = computed(
-  () => data.value?.reduce((acc, next) => (next.value > 0 ? (acc = acc + 1) : acc), 0) ?? 0
+  () =>
+    data.value?.reduce((acc, next) => {
+      const count = next.reduce((acc, n) => {
+        let count = 0
+        if (Array.isArray(n.value)) {
+          return acc + n.value.length
+        } else if (n.value) {
+          return acc + n.value
+        } else {
+          return acc
+        }
+      }, 0)
+      return acc + count
+    }, 0) ?? 0
 )
 const tableRef = ref<HTMLDivElement | null>(null)
 const scrollWidthTable = ref(0)
