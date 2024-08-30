@@ -38,7 +38,7 @@
           <div
             v-if="row?.[colIndex]?.col === 0 && rowType === RowType.content"
             data-label="horizontal-guide"
-            class="absolute z-10 bg-gray-200 h-1 top-1/2 pointer-events-none"
+            class="absolute bg-gray-200 h-1 top-1/2 pointer-events-none"
             :style="{ width: scrollWidthTable + 'px' }"
           />
           <div

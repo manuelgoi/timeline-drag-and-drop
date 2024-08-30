@@ -12,7 +12,7 @@
         class="w-full grid"
       >
         <!-- First column (panel information) -->
-        <div :class="['left-0 sticky', row === null ? 'z-50 top-0' : 'z-40']">
+        <div :class="[row === null ? 'sticky z-40 left-0 top-0' : 'z-30 left-0 sticky']">
           <slot
             name="leftPanel"
             :row="row"
