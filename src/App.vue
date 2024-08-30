@@ -11,6 +11,7 @@
       <option value="GridTableFive">Grid Table Sample Five</option>
       <option value="GridTableSix">Grid Table Sample Six</option>
       <option value="GridTableSeven">Grid Table Sample Seven</option>
+      <option value="GridTableNine">Grid Table Sample NINE !!</option>
     </select>
     <component :is="grids[gridSelected]" />
   </div>
@@ -24,9 +25,10 @@ import GridTableFour from './components/GridTableFour.vue'
 import GridTableFive from '@/components/GridTableFive.vue'
 import GridTableSix from './components/GridTableSix.vue'
 import GridTableSeven from './components/GridTableSeven.vue'
+import GridTableNine from './components/GridTableNine'
 import { ref } from 'vue'
 
-const gridSelected = ref('GridTableSeven')
+const gridSelected = ref('GridTableNine')
 const grids = {
   GridTableOne,
   GridTableTwo,
@@ -34,7 +36,8 @@ const grids = {
   GridTableFour,
   GridTableFive,
   GridTableSix,
-  GridTableSeven
+  GridTableSeven,
+  GridTableNine
 }
 
 function handleSelect(e: Event): void {
